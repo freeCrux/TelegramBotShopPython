@@ -1,0 +1,4 @@
+.env
+server.db
+venv
+identifier.sqlite
