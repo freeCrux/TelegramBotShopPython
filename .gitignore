@@ -2,3 +2,5 @@
 server.db
 venv
 identifier.sqlite
+__pycache__
+.idea
