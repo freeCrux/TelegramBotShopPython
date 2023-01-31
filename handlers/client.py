@@ -14,7 +14,7 @@ async def start_help(message: types.Message):
 
 
 async def show_all_products(message: types.Message):
-    products: list = await sql_db.get_product_list()
+    products: list = await sql_db.get_available_product_list()
 
     await bot.send_message(message.from_user.id, "Продукция:\n",
                            reply_markup=await get_products_inl_kb(products=products))

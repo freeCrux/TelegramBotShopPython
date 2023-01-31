@@ -34,8 +34,8 @@ class FSMAuthorization(StatesGroup):
 
 
 class FSMDelivery(StatesGroup):
+    prod_id = State()
     photo = State()
-    name = State()
     address = State()
     description = State()
 
@@ -95,9 +95,9 @@ async def logout(message: types.Message):
     await bot.send_message(message.from_user.id, "Now u are not admin", reply_markup=client_menu_kb)
 
 
-# ----------------- #
-# Add a new product #
-# ----------------- #
+# ------- #
+# Product #
+# ------- #
 
 
 async def add_product(message: types.Message):
@@ -109,14 +109,14 @@ async def add_product(message: types.Message):
                            reply_markup=ReplyKeyboardRemove())
 
 
-async def set_photo(message: types.Message, state: FSMContext):
+async def set_photo_new_prod(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["photo"] = message.photo[0].file_id
     await FSMProduct.next()
     await bot.send_message(message.from_user.id, "Write the name")
 
 
-async def set_name(message: types.Message, state: FSMContext):
+async def set_name_new_prod(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["name"] = message.text
     await FSMProduct.next()
@@ -127,20 +127,69 @@ async def price_is_invalid(message: types.Message):
     return await message.reply("Price gotta be a digits only (for example: 150)")
 
 
-async def set_price(message: types.Message, state: FSMContext):
+async def set_price_new_prod(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["price"] = int(message.text)
     await FSMProduct.next()
     await bot.send_message(message.from_user.id, "Set the description")
 
 
-async def set_description(message: types.Message, state: FSMContext):
+async def set_description_new_prod(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["description"] = message.text
 
     await bot.send_message(message.from_user.id, "New product added", reply_markup=admin_menu_kb)
     await sql_db.add_product(state=state)
     await state.finish()
+
+
+# -------- #
+# Delivery #
+# -------- #
+
+
+async def add_delivery(message: types.Message):
+    await bot.send_message(message.from_user.id,
+                           "Вы в режиме добавляения новой доставки для отмены нажмите кнопку ниже",
+                           reply_markup=cancel_input_inline_kd)
+    await FSMDelivery.prod_id.set()
+    await bot.send_message(message.from_user.id, "Выбирите продукт доставки",
+                           reply_markup=ReplyKeyboardRemove())
+
+
+async def select_product_id_new_delivery(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data["prod_id"] = int(message.text)
+        print(message.text)
+    await FSMDelivery.next()
+    await bot.send_message(message.from_user.id, "Пришлите одно фото места доставки")
+
+
+async def set_photo_new_delivery(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data["photo"] = message.photo[0].file_id
+    await FSMDelivery.next()
+    await bot.send_message(message.from_user.id, "Пришлите адресс (Пример: 12331.123.123123) ")
+
+
+async def set_address_new_delivery(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data["address"] = message.text
+    await FSMDelivery.next()
+    await bot.send_message(message.from_user.id, "Оставьте описание для доставки ")
+
+
+async def set_description_new_delivery(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data["description"] = message.text
+
+    await bot.send_message(message.from_user.id, "Доставка оформлена", reply_markup=admin_menu_kb)
+    await sql_db.add_delivery(state=state)
+    await state.finish()
+
+
+async def show_delivers(message: types.Message):
+    pass
 
 
 def register_admin_handlers(dp: Dispatcher):
@@ -162,8 +211,18 @@ def register_admin_handlers(dp: Dispatcher):
     # <Add new product>
     dp.register_message_handler(add_product, lambda message: verify(message.from_user.id),
                                 commands=["add_product"], state=None)
-    dp.register_message_handler(set_photo, content_types=["photo"], state=FSMProduct.photo)
-    dp.register_message_handler(set_name, state=FSMProduct.name)
+    dp.register_message_handler(set_photo_new_prod, content_types=["photo"], state=FSMProduct.photo)
+    dp.register_message_handler(set_name_new_prod, state=FSMProduct.name)
     dp.register_message_handler(price_is_invalid, lambda message: not message.text.isdigit(), state=FSMProduct.price)
-    dp.register_message_handler(set_price, lambda message: message.text.isdigit(), state=FSMProduct.price)
-    dp.register_message_handler(set_description, state=FSMProduct.description)
+    dp.register_message_handler(set_price_new_prod, lambda message: message.text.isdigit(), state=FSMProduct.price)
+    dp.register_message_handler(set_description_new_prod, state=FSMProduct.description)
+
+    # <Add new delivery>
+    dp.register_message_handler(add_delivery, lambda message: verify(message.from_user.id),
+                                commands=["add_delivery"], state=None)
+    dp.register_message_handler(select_product_id_new_delivery, state=FSMDelivery.prod_id)
+    dp.register_message_handler(set_photo_new_delivery, content_types=["photo"], state=FSMDelivery.photo)
+    dp.register_message_handler(set_address_new_delivery, state=FSMDelivery.address)
+    dp.register_message_handler(set_description_new_delivery, state=FSMDelivery.description)
+
+    # <Show all delivery>
