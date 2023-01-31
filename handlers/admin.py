@@ -54,9 +54,9 @@ async def cmd_menu(message: types.Message):
     await bot.send_message(message.from_user.id, "Right now u can add a new product", reply_markup=admin_menu_kb)
 
 
-# ------------------------------------------ #
-# Verify, logout and register a user as admin  #
-# ------------------------------------------ #
+# ------------------------------------------- #
+# Verify, logout and register a user as admin #
+# ------------------------------------------- #
 
 
 def verify(user_id: int) -> bool:
@@ -138,7 +138,7 @@ async def set_description(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["description"] = message.text
 
-    await bot.send_message(message.from_user.id, "New product added")
+    await bot.send_message(message.from_user.id, "New product added", reply_markup=admin_menu_kb)
     await sql_db.add_product(state=state)
     await state.finish()
 

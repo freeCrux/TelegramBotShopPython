@@ -38,9 +38,12 @@ async def add_product(state: FSMContext):
         database.commit()
 
 
-async def get_all_product(message: types.Message):
-    for pr in cursor.execute('SELECT * FROM product').fetchall():
-        await bot.send_photo(message.from_user.id, pr[0], f"Name: {pr[1]} | Price: {pr[2]}\nDescription: {pr[-1]}")
+async def get_product_list() -> list:
+    return cursor.execute('SELECT * FROM product').fetchall()
+
+
+async def get_product(name_prod: str) -> tuple:
+    return cursor.execute('SELECT * FROM product WHERE name = ?').fetchone()
 
 
 async def add_client(message: types.Message):
