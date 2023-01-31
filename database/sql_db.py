@@ -11,30 +11,32 @@ def sql_connect():
 
     cursor.execute('CREATE TABLE IF NOT EXISTS product( '
                    'photo TEXT,'
-                   'name TEXT PRIMARY KEY,'
+                   'name TEXT,'
                    'price INTEGER,'
-                   'description TEXT)')
+                   'description TEXT,'
+                   'id INTEGER PRIMARY KEY AUTOINCREMENT)')
 
-    cursor.execute('CREATE TABLE IF NOT EXISTS delivery( '
-                   'photo TEXT,'
-                   'name TEXT PRIMARY KEY,'
-                   'price INTEGER,'
-                   # 'photo BLOB NOT NULL, '
-                   'description TEXT)')
-
-    cursor.execute('CREATE TABLE IF NOT EXISTS sale( '
-                   'photo TEXT,'
-                   'name TEXT PRIMARY KEY,'
-                   'price INTEGER,'
-                   # 'photo BLOB NOT NULL, '
-                   'description TEXT)')
+    # cursor.execute('CREATE TABLE IF NOT EXISTS delivery( '
+    #                'photo TEXT,'
+    #                'name TEXT PRIMARY KEY,'
+    #                'price INTEGER,'
+    #                # 'photo BLOB NOT NULL, '
+    #                'description TEXT)')
+    #
+    # cursor.execute('CREATE TABLE IF NOT EXISTS sale( '
+    #                'photo TEXT,'
+    #                'name TEXT PRIMARY KEY,'
+    #                'price INTEGER,'
+    #                # 'photo BLOB NOT NULL, '
+    #                'description TEXT)')
 
     database.commit()
 
 
 async def add_product(state: FSMContext):
     async with state.proxy() as data:
-        cursor.execute('INSERT INTO product VALUES (?, ?, ?, ?)', tuple(data.values()))
+        cursor.execute('INSERT INTO product (photo, name, price, description) VALUES (?, ?, ?, ?)',
+                       tuple(data.values()))
         database.commit()
 
 
@@ -42,8 +44,8 @@ async def get_product_list() -> list:
     return cursor.execute('SELECT * FROM product').fetchall()
 
 
-async def get_product(name_prod: str) -> tuple:
-    return cursor.execute('SELECT * FROM product WHERE name = ?').fetchone()
+async def get_product(prod_id: int) -> tuple:
+    return cursor.execute('SELECT * FROM product WHERE id = ?', (prod_id,)).fetchone()
 
 
 async def add_client(message: types.Message):
