@@ -56,6 +56,11 @@ async def get_available_product_list() -> list:
     return available_prod
 
 
+async def counter_deliveries_by_product(prod_id: int) -> int:
+    available_delivery = cursor.execute('SELECT * FROM delivery WHERE productId = ?', (prod_id,)).fetchall()
+    return len(available_delivery)
+
+
 async def get_all_product_list() -> list:
     return cursor.execute('SELECT * FROM product').fetchall()
 
@@ -68,6 +73,12 @@ async def change_product(prod_data: FSMContextProxy):
     cursor.execute('UPDATE product SET (photo, name, price, description) = (?, ?, ?, ?) WHERE id = ?',
                    (prod_data["photo"], prod_data["name"], prod_data["price"],
                     prod_data["description"], prod_data["product_id"],))
+    database.commit()
+
+
+async def delete_product(prod_id: int):
+    cursor.execute('DELETE FROM product WHERE id = ?', (prod_id,))
+    database.commit()
 
 
 # -------------------- #

@@ -6,7 +6,7 @@ cancel_input_inline_kd = InlineKeyboardMarkup(row_width=1)
 cancel_input_inline_kd.add(cancel_button)
 
 
-async def get_product_editor_menu_inline_kd(prod_id: int):
+async def get_product_editor_menu_inline_kd(prod_id: int) -> InlineKeyboardMarkup:
     product_change_button = InlineKeyboardButton(text="Изменить товар", callback_data=f"id_product_to_change:{prod_id}")
     product_delete_button = InlineKeyboardButton(text="Удалить товар", callback_data=f"id_product_ro_delete:{prod_id}")
     product_editor_menu_inline_kd = InlineKeyboardMarkup(row_width=2)

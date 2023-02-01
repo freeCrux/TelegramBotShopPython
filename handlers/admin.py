@@ -139,7 +139,7 @@ async def set_name_new_prod(message: types.Message, state: FSMContext):
 
 
 async def price_is_invalid(message: types.Message):
-    return await message.reply("Price gotta be a digits only (for example: 150)")
+    return await message.reply("Бро что за дела! Цена должна быть только в цифрах (Пример: 65)")
 
 
 async def set_price_new_prod(message: types.Message, state: FSMContext):
@@ -165,7 +165,7 @@ async def set_description_new_prod(message: types.Message, state: FSMContext):
             await sql_db.change_product(prod_data=data)
             await bot.send_message(message.from_user.id, "Товар успешно изменен", reply_markup=ReplyKeyboardRemove())
             await bot.send_photo(message.from_user.id, data['photo'],
-                                 f"Name: {data['name']} | Price: {data['price']}\nDescription: {data['description']}",
+                                 f"Название: {data['name']} | Цена: {data['price']}\nОписание: {data['description']}",
                                  reply_markup=admin_menu_kb)
     await state.finish()
 
@@ -182,7 +182,9 @@ async def redactor_of_product(callback: types.CallbackQuery):
     product_id = int(callback.data.split(':')[1])
     prod_data: tuple = await sql_db.get_product(prod_id=product_id)
     await bot.send_photo(callback.message.chat.id, prod_data[0],
-                         f"Name: {prod_data[1]} | Price: {prod_data[2]}\nDescription: {prod_data[-1]}",
+                         f"Название: {prod_data[1]} | Цена: {prod_data[2]}\nОписание: {prod_data[-1]}\n"
+                         f"Кол-во доступных доставок: "
+                         f"{await sql_db.counter_deliveries_by_product(prod_id=product_id)}",
                          reply_markup=await get_product_editor_menu_inline_kd(prod_id=product_id))
 
 
@@ -203,9 +205,13 @@ async def edit_product(callback: types.CallbackQuery, state: FSMContext):
                          reply_markup=ReplyKeyboardRemove())
 
 
+async def delete_product(callback: types.CallbackQuery):
+    product_id = int(callback.data.split(':')[1])
+    await sql_db.delete_product(prod_id=product_id)
+    products = await sql_db.get_all_product_list()
+    await callback.message.answer("Товар успешно удален",
+                                  reply_markup=await get_products_list_inl_kb(products=products))
 
-async def delete_product():
-    pass
 
 # -------- #
 # Delivery #
@@ -279,7 +285,7 @@ def register_admin_handlers(dp: Dispatcher):
                                        Text(startswith="prod_id_for_redactor:", ignore_case=True), state=None)
     dp.register_callback_query_handler(edit_product, lambda message: verify(message.from_user.id),
                                        Text(startswith="id_product_to_change:", ignore_case=True))
-    dp.register_callback_query_handler(redactor_of_product, lambda message: verify(message.from_user.id),
+    dp.register_callback_query_handler(delete_product, lambda message: verify(message.from_user.id),
                                        Text(startswith="id_product_ro_delete:", ignore_case=True))
 
     dp.register_message_handler(add_product, lambda message: verify(message.from_user.id),
