@@ -6,12 +6,18 @@ from aiogram.types import ReplyKeyboardRemove, CallbackQuery
 
 from config import admin_login, admin_password, admins_id_list
 from bot_init import bot, dp
-from keyboards import (
+
+# <Buttons>
+from keyboards.admin_keyboard import (
     admin_menu_kb,
     add_product_kd,
-    cancel_input_inline_kd,
-    client_menu_kb,
 )
+from keyboards.admin_inline_buttons import (
+    cancel_input_inline_kd,
+    get_product_editor_menu_inline_kd,
+    get_products_list_inl_kb,
+)
+from keyboards.client_keyboard import client_menu_kb
 
 from database import sql_db
 
@@ -21,19 +27,20 @@ from database import sql_db
 # ----------------------------------- #
 
 
-class FSMProduct(StatesGroup):
+class ProductStatesGroup(StatesGroup):
+    product_id = State()
     photo = State()
     name = State()
     price = State()
     description = State()
 
 
-class FSMAuthorization(StatesGroup):
+class AuthorizationStatesGroup(StatesGroup):
     login = State()
     password = State()
 
 
-class FSMDelivery(StatesGroup):
+class DeliveryStatesGroup(StatesGroup):
     prod_id = State()
     photo = State()
     address = State()
@@ -44,7 +51,6 @@ async def cancel_handler(callback: types.CallbackQuery, state: FSMContext):
     current_state = await state.get_state()
     if current_state is None:
         return
-
     await state.finish()
     await callback.message.answer("Вы отменили добавление нового продукта", reply_markup=admin_menu_kb)
     await callback.answer("Ввод отменен!")
@@ -66,16 +72,16 @@ def verify(user_id: int) -> bool:
 
 
 async def register(message: types.Message, state: FSMContext):
-    await FSMAuthorization.login.set()
-    await bot.send_message(message.from_user.id, "Send login")
+    await AuthorizationStatesGroup.login.set()
+    await bot.send_message(message.from_user.id, "Введи логин от аккаунта большого босса - админа")
 
 
 async def get_login(message: types.Message, state: FSMContext):
     if message.text == admin_login:
-        await FSMAuthorization.password.set()
-        await bot.send_message(message.from_user.id, "Send password")
+        await AuthorizationStatesGroup.password.set()
+        await bot.send_message(message.from_user.id, "Попытай свою удачю, введи пароль")
     else:
-        await bot.send_message(message.from_user.id, "Wrong login")
+        await bot.send_message(message.from_user.id, "Кого ты пытаешься обнамуть по просто работяга, неверный логин")
         await state.finish()
     await bot.delete_message(message.chat.id, message.message_id)
 
@@ -83,16 +89,18 @@ async def get_login(message: types.Message, state: FSMContext):
 async def get_password(message: types.Message, state: FSMContext):
     if message.text == admin_password:
         admins_id_list.append(message.from_user.id)
-        await bot.send_message(message.from_user.id, "U are admin", reply_markup=admin_menu_kb)
+        await bot.send_message(message.from_user.id,
+                               "Внимание! Ты стал биг боссом - админом. Теперь разрешаю наворотить дел!",
+                               reply_markup=admin_menu_kb)
     else:
-        await bot.send_message(message.from_user.id, "Wrong password")
+        await bot.send_message(message.from_user.id, "Не растраивайся! Попытай удачу позже!")
     await state.finish()
     await bot.delete_message(message.chat.id, message.message_id)
 
 
 async def logout(message: types.Message):
     admins_id_list.pop(admins_id_list.index(message.from_user.id))
-    await bot.send_message(message.from_user.id, "Now u are not admin", reply_markup=client_menu_kb)
+    await bot.send_message(message.from_user.id, "Вы покинули пост администратора", reply_markup=client_menu_kb)
 
 
 # ------- #
@@ -104,23 +112,30 @@ async def add_product(message: types.Message):
     await bot.send_message(message.from_user.id,
                            "Вы в режиме добавляения нового товара для отмены нажмите кнопку ниже",
                            reply_markup=cancel_input_inline_kd)
-    await FSMProduct.photo.set()
-    await bot.send_message(message.from_user.id, "Send the photo of new product",
+    await ProductStatesGroup.photo.set()
+    await bot.send_message(message.from_user.id, "Пришлите одно фото для нового товара",
                            reply_markup=ReplyKeyboardRemove())
 
 
 async def set_photo_new_prod(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["photo"] = message.photo[0].file_id
-    await FSMProduct.next()
-    await bot.send_message(message.from_user.id, "Write the name")
+        if data["product_id"] == -1:
+            await bot.send_message(message.from_user.id, "Напишите имя нового товара")
+        else:
+            await bot.send_message(message.from_user.id,
+                                   "Eсли хотите оставить cтарое имя товара скопируейти его и пришлите новым сообщением")
+            await bot.send_message(message.from_user.id, data["name"])
+    await ProductStatesGroup.next()
 
 
 async def set_name_new_prod(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["name"] = message.text
-    await FSMProduct.next()
-    await bot.send_message(message.from_user.id, "Write the price")
+        if data["product_id"] != -1:
+            await bot.send_message(message.from_user.id, f"Старая цена: {data['price']}$")
+    await ProductStatesGroup.next()
+    await bot.send_message(message.from_user.id, "Укажите цену товара")
 
 
 async def price_is_invalid(message: types.Message):
@@ -130,18 +145,67 @@ async def price_is_invalid(message: types.Message):
 async def set_price_new_prod(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["price"] = int(message.text)
-    await FSMProduct.next()
-    await bot.send_message(message.from_user.id, "Set the description")
+        if data["product_id"] == -1:
+            await bot.send_message(message.from_user.id, "Напишите описание нового товара")
+        else:
+            await bot.send_message(message.from_user.id,
+                                   "Eсли хотите оставить cтарое описание "
+                                   "товара скопируейти его и пришлите новым сообщением")
+            await bot.send_message(message.from_user.id, data["description"])
+    await ProductStatesGroup.next()
 
 
 async def set_description_new_prod(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["description"] = message.text
-
-    await bot.send_message(message.from_user.id, "New product added", reply_markup=admin_menu_kb)
-    await sql_db.add_product(state=state)
+        if data["product_id"] == -1:
+            await sql_db.add_product(state=data)
+            await bot.send_message(message.from_user.id, "Новый товар добавлен", reply_markup=admin_menu_kb)
+        else:
+            await sql_db.change_product(prod_data=data)
+            await bot.send_message(message.from_user.id, "Товар успешно изменен", reply_markup=ReplyKeyboardRemove())
+            await bot.send_photo(message.from_user.id, data['photo'],
+                                 f"Name: {data['name']} | Price: {data['price']}\nDescription: {data['description']}",
+                                 reply_markup=admin_menu_kb)
     await state.finish()
 
+
+async def show_all_products(message: types.Message):
+    all_products = await sql_db.get_all_product_list()
+    await bot.send_message(message.from_user.id, "Список всех товаров",
+                           reply_markup=await get_products_list_inl_kb(products=all_products))
+    await bot.send_message(message.from_user.id, "Вы можете отредактировать товары",
+                           reply_markup=admin_menu_kb)
+
+
+async def redactor_of_product(callback: types.CallbackQuery):
+    product_id = int(callback.data.split(':')[1])
+    prod_data: tuple = await sql_db.get_product(prod_id=product_id)
+    await bot.send_photo(callback.message.chat.id, prod_data[0],
+                         f"Name: {prod_data[1]} | Price: {prod_data[2]}\nDescription: {prod_data[-1]}",
+                         reply_markup=await get_product_editor_menu_inline_kd(prod_id=product_id))
+
+
+async def edit_product(callback: types.CallbackQuery, state: FSMContext):
+    product_id = int(callback.data.split(':')[1])
+    prod_data: tuple = await sql_db.get_product(prod_id=product_id)
+    await ProductStatesGroup.photo.set()
+    async with state.proxy() as data:
+        data["product_id"] = product_id
+        data["photo"] = prod_data[0]
+        data["name"] = prod_data[1]
+        data["price"] = prod_data[2]
+        data["description"] = prod_data[3]
+    await callback.message.answer("Вы в режиме редактирования товара для отмены нажмите кнопку ниже",
+                                  reply_markup=cancel_input_inline_kd)
+    await bot.send_photo(callback.message.chat.id, prod_data[0],
+                         "Старое фото товара если вы хотите оставть его перешлите это сообщение сюда",
+                         reply_markup=ReplyKeyboardRemove())
+
+
+
+async def delete_product():
+    pass
 
 # -------- #
 # Delivery #
@@ -152,7 +216,7 @@ async def add_delivery(message: types.Message):
     await bot.send_message(message.from_user.id,
                            "Вы в режиме добавляения новой доставки для отмены нажмите кнопку ниже",
                            reply_markup=cancel_input_inline_kd)
-    await FSMDelivery.prod_id.set()
+    await DeliveryStatesGroup.prod_id.set()
     await bot.send_message(message.from_user.id, "Выбирите продукт доставки",
                            reply_markup=ReplyKeyboardRemove())
 
@@ -161,21 +225,21 @@ async def select_product_id_new_delivery(message: types.Message, state: FSMConte
     async with state.proxy() as data:
         data["prod_id"] = int(message.text)
         print(message.text)
-    await FSMDelivery.next()
+    await DeliveryStatesGroup.next()
     await bot.send_message(message.from_user.id, "Пришлите одно фото места доставки")
 
 
 async def set_photo_new_delivery(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["photo"] = message.photo[0].file_id
-    await FSMDelivery.next()
+    await DeliveryStatesGroup.next()
     await bot.send_message(message.from_user.id, "Пришлите адресс (Пример: 12331.123.123123) ")
 
 
 async def set_address_new_delivery(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["address"] = message.text
-    await FSMDelivery.next()
+    await DeliveryStatesGroup.next()
     await bot.send_message(message.from_user.id, "Оставьте описание для доставки ")
 
 
@@ -193,36 +257,46 @@ async def show_delivers(message: types.Message):
 
 
 def register_admin_handlers(dp: Dispatcher):
-    # <Cancel input new product>
+    # <Cancel input when add new product or edit product>
     dp.register_callback_query_handler(cancel_handler, text="cancel_input", state="*")
 
     # <Show admin menu>
     dp.register_message_handler(cmd_menu, lambda message: verify(message.from_user.id), commands=["admin"])
 
-    # <Register>
+    # <Register user as admin>
     dp.register_message_handler(register, lambda message: not verify(message.from_user.id),
                                 commands=["admin"], state=None)
-    dp.register_message_handler(get_login, state=FSMAuthorization.login)
-    dp.register_message_handler(get_password, state=FSMAuthorization.password)
+    dp.register_message_handler(get_login, state=AuthorizationStatesGroup.login)
+    dp.register_message_handler(get_password, state=AuthorizationStatesGroup.password)
 
     # <Logout admin and show user menu>
     dp.register_message_handler(logout, lambda message: verify(message.from_user.id), commands=["logout"])
 
-    # <Add new product>
+    # <Add new product or edit existing product>
+    dp.register_message_handler(show_all_products, lambda message: verify(message.from_user.id),
+                                commands=["show_product"], state=None)
+    dp.register_callback_query_handler(redactor_of_product, lambda message: verify(message.from_user.id),
+                                       Text(startswith="prod_id_for_redactor:", ignore_case=True), state=None)
+    dp.register_callback_query_handler(edit_product, lambda message: verify(message.from_user.id),
+                                       Text(startswith="id_product_to_change:", ignore_case=True))
+    dp.register_callback_query_handler(redactor_of_product, lambda message: verify(message.from_user.id),
+                                       Text(startswith="id_product_ro_delete:", ignore_case=True))
+
     dp.register_message_handler(add_product, lambda message: verify(message.from_user.id),
                                 commands=["add_product"], state=None)
-    dp.register_message_handler(set_photo_new_prod, content_types=["photo"], state=FSMProduct.photo)
-    dp.register_message_handler(set_name_new_prod, state=FSMProduct.name)
-    dp.register_message_handler(price_is_invalid, lambda message: not message.text.isdigit(), state=FSMProduct.price)
-    dp.register_message_handler(set_price_new_prod, lambda message: message.text.isdigit(), state=FSMProduct.price)
-    dp.register_message_handler(set_description_new_prod, state=FSMProduct.description)
+    dp.register_message_handler(set_photo_new_prod, content_types=["photo"], state=ProductStatesGroup.photo)
+    dp.register_message_handler(set_name_new_prod, state=ProductStatesGroup.name)
+    dp.register_message_handler(price_is_invalid, lambda message: not message.text.isdigit(),
+                                state=ProductStatesGroup.price)
+    dp.register_message_handler(set_price_new_prod, lambda message: message.text.isdigit(),
+                                state=ProductStatesGroup.price)
+    dp.register_message_handler(set_description_new_prod, state=ProductStatesGroup.description)
 
-    # <Add new delivery>
+    # <Add new delivery or delete existing delivery>
     dp.register_message_handler(add_delivery, lambda message: verify(message.from_user.id),
                                 commands=["add_delivery"], state=None)
-    dp.register_message_handler(select_product_id_new_delivery, state=FSMDelivery.prod_id)
-    dp.register_message_handler(set_photo_new_delivery, content_types=["photo"], state=FSMDelivery.photo)
-    dp.register_message_handler(set_address_new_delivery, state=FSMDelivery.address)
-    dp.register_message_handler(set_description_new_delivery, state=FSMDelivery.description)
+    dp.register_message_handler(select_product_id_new_delivery, state=DeliveryStatesGroup.prod_id)
+    dp.register_message_handler(set_photo_new_delivery, content_types=["photo"], state=DeliveryStatesGroup.photo)
+    dp.register_message_handler(set_address_new_delivery, state=DeliveryStatesGroup.address)
+    dp.register_message_handler(set_description_new_delivery, state=DeliveryStatesGroup.description)
 
-    # <Show all delivery>

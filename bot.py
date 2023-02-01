@@ -10,8 +10,8 @@ async def on_startup(_):
     sql_db.sql_connect()
 
 
-client.register_client_handlers(dp=dp)
 admin.register_admin_handlers(dp=dp)
+client.register_client_handlers(dp=dp)
 
 
 if __name__ == '__main__':

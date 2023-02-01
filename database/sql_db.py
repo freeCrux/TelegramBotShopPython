@@ -1,6 +1,8 @@
 import sqlite3
 from aiogram.dispatcher import FSMContext
 from aiogram import types
+from aiogram.dispatcher.storage import FSMContextProxy
+
 from bot_init import bot
 
 
@@ -41,7 +43,7 @@ def sql_connect():
 async def add_product(state: FSMContext):
     async with state.proxy() as data:
         cursor.execute('INSERT INTO product (photo, name, price, description) VALUES (?, ?, ?, ?)',
-                       tuple(data.values()))
+                       (data["photo"], data["name"], data["price"], data["description"],))
         database.commit()
 
 
@@ -62,12 +64,18 @@ async def get_product(prod_id: int) -> tuple:
     return cursor.execute('SELECT * FROM product WHERE id = ?', (prod_id,)).fetchone()
 
 
+async def change_product(prod_data: FSMContextProxy):
+    cursor.execute('UPDATE product SET (photo, name, price, description) = (?, ?, ?, ?) WHERE id = ?',
+                   (prod_data["photo"], prod_data["name"], prod_data["price"],
+                    prod_data["description"], prod_data["product_id"],))
+
+
 # -------------------- #
 # Operation on clients #
 # -------------------- #
 
 
-async def add_client():
+async def add_client(message: types.Message):
     pass
 
 

@@ -6,7 +6,7 @@ buy_inline_kd = InlineKeyboardMarkup(row_width=1)
 buy_inline_kd.add(buy_button)
 
 
-async def get_products_inl_kb(products: list) -> InlineKeyboardMarkup:
+async def get_products_list_inl_kb(products: list) -> InlineKeyboardMarkup:
     prod_inl_kb = InlineKeyboardMarkup(row_width=1)
     for pr in products:
         # <pr[1] - name of product>, <pr[2] - price of product>, <pr[4] - id of product>

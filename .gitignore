@@ -4,3 +4,6 @@ venv
 identifier.sqlite
 __pycache__
 .idea
+database/__pycache__
+handlers/__pycache__
+keyboards/__pycache__
