@@ -174,10 +174,15 @@ async def set_description_new_prod(message: types.Message, state: FSMContext):
 
 async def show_all_products(message: types.Message):
     all_products = await sql_db.get_all_product_list()
-    await bot.send_message(message.from_user.id, "Список всех товаров",
-                           reply_markup=await get_products_list_inl_kb(products=all_products))
-    await bot.send_message(message.from_user.id, "Вы можете отредактировать товары",
-                           reply_markup=admin_menu_kb)
+    if len(all_products) > 0:
+        await bot.send_message(message.from_user.id, "Список всех товаров",
+                               reply_markup=await get_products_list_inl_kb(products=all_products))
+        await bot.send_message(message.from_user.id, "Вы можете отредактировать товары",
+                               reply_markup=admin_menu_kb)
+    else:
+        await bot.send_message(message.from_user.id, "Нет ни одного товара, но вы можете добавить новый товар командой"
+                                                     "/add_product",
+                               reply_markup=admin_menu_kb)
 
 
 async def redactor_of_product(callback: types.CallbackQuery):
