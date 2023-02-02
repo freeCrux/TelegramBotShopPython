@@ -40,11 +40,10 @@ def sql_connect():
 # --------------------- #
 
 
-async def add_product(state: FSMContext):
-    async with state.proxy() as data:
-        cursor.execute('INSERT INTO product (photo, name, price, description) VALUES (?, ?, ?, ?)',
-                       (data["photo"], data["name"], data["price"], data["description"],))
-        database.commit()
+async def add_product(prod_data: FSMContextProxy):
+    cursor.execute('INSERT INTO product (photo, name, price, description) VALUES (?, ?, ?, ?)',
+                   (prod_data["photo"], prod_data["name"], prod_data["price"], prod_data["description"],))
+    database.commit()
 
 
 async def get_available_product_list() -> list:

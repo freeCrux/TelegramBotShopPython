@@ -108,11 +108,13 @@ async def logout(message: types.Message):
 # ------- #
 
 
-async def add_product(message: types.Message):
+async def add_product(message: types.Message, state: FSMContext):
     await bot.send_message(message.from_user.id,
                            "Вы в режиме добавляения нового товара для отмены нажмите кнопку ниже",
                            reply_markup=cancel_input_inline_kd)
     await ProductStatesGroup.photo.set()
+    async with state.proxy() as data:
+        data["product_id"] = -1
     await bot.send_message(message.from_user.id, "Пришлите одно фото для нового товара",
                            reply_markup=ReplyKeyboardRemove())
 
@@ -159,7 +161,7 @@ async def set_description_new_prod(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["description"] = message.text
         if data["product_id"] == -1:
-            await sql_db.add_product(state=data)
+            await sql_db.add_product(prod_data=data)
             await bot.send_message(message.from_user.id, "Новый товар добавлен", reply_markup=admin_menu_kb)
         else:
             await sql_db.change_product(prod_data=data)
@@ -182,10 +184,11 @@ async def redactor_of_product(callback: types.CallbackQuery):
     product_id = int(callback.data.split(':')[1])
     prod_data: tuple = await sql_db.get_product(prod_id=product_id)
     await bot.send_photo(callback.message.chat.id, prod_data[0],
-                         f"Название: {prod_data[1]} | Цена: {prod_data[2]}\nОписание: {prod_data[-1]}\n"
-                         f"Кол-во доступных доставок: "
-                         f"{await sql_db.counter_deliveries_by_product(prod_id=product_id)}",
+                         f"Название: {prod_data[1]} | ID:{product_id} | Цена: {prod_data[2]}\n"
+                         f"Кол-во доступных доставок: {await sql_db.counter_deliveries_by_product(prod_id=product_id)}"
+                         f"\nОписание: {prod_data[-1]}",
                          reply_markup=await get_product_editor_menu_inline_kd(prod_id=product_id))
+    await callback.answer("Можете редактировать товар")
 
 
 async def edit_product(callback: types.CallbackQuery, state: FSMContext):
@@ -203,6 +206,7 @@ async def edit_product(callback: types.CallbackQuery, state: FSMContext):
     await bot.send_photo(callback.message.chat.id, prod_data[0],
                          "Старое фото товара если вы хотите оставть его перешлите это сообщение сюда",
                          reply_markup=ReplyKeyboardRemove())
+    await callback.answer("Товар в режиме редактирования")
 
 
 async def delete_product(callback: types.CallbackQuery):
@@ -211,6 +215,7 @@ async def delete_product(callback: types.CallbackQuery):
     products = await sql_db.get_all_product_list()
     await callback.message.answer("Товар успешно удален",
                                   reply_markup=await get_products_list_inl_kb(products=products))
+    await callback.answer("Продукт удален")
 
 
 # -------- #
