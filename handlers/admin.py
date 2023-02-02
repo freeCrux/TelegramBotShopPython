@@ -52,7 +52,7 @@ async def cancel_handler(callback: types.CallbackQuery, state: FSMContext):
     if current_state is None:
         return
     await state.finish()
-    await callback.message.answer("Вы отменили добавление нового продукта", reply_markup=admin_menu_kb)
+    await callback.message.answer("Вы отменили ввод", reply_markup=admin_menu_kb)
     await callback.answer("Ввод отменен!")
 
 
@@ -176,7 +176,8 @@ async def show_all_products(message: types.Message):
     all_products = await sql_db.get_all_product_list()
     if len(all_products) > 0:
         await bot.send_message(message.from_user.id, "Список всех товаров",
-                               reply_markup=await get_products_list_inl_kb(products=all_products))
+                               reply_markup=await get_products_list_inl_kb(
+                                   products=all_products, mode="prod_id_for_redactor"))
         await bot.send_message(message.from_user.id, "Вы можете отредактировать товары",
                                reply_markup=admin_menu_kb)
     else:
@@ -194,6 +195,7 @@ async def redactor_of_product(callback: types.CallbackQuery):
                          f"\nОписание: {prod_data[-1]}",
                          reply_markup=await get_product_editor_menu_inline_kd(prod_id=product_id))
     await callback.answer("Можете редактировать товар")
+
 
 
 async def edit_product(callback: types.CallbackQuery, state: FSMContext):
@@ -219,7 +221,8 @@ async def delete_product(callback: types.CallbackQuery):
     await sql_db.delete_product(prod_id=product_id)
     products = await sql_db.get_all_product_list()
     await callback.message.answer("Товар успешно удален",
-                                  reply_markup=await get_products_list_inl_kb(products=products))
+                                  reply_markup=await get_products_list_inl_kb(
+                                      products=products, mode="prod_id_for_redactor"))
     await callback.answer("Продукт удален")
 
 
@@ -229,20 +232,22 @@ async def delete_product(callback: types.CallbackQuery):
 
 
 async def add_delivery(message: types.Message):
-    await bot.send_message(message.from_user.id,
-                           "Вы в режиме добавляения новой доставки для отмены нажмите кнопку ниже",
-                           reply_markup=cancel_input_inline_kd)
+    await bot.send_message(message.from_user.id, "Вы в режиме добавляения новой доставки для отмены нажмите кнопку ниже",
+                                  reply_markup=cancel_input_inline_kd)
+    products = await sql_db.get_all_product_list()
+    await bot.send_message(message.from_user.id, "Выберите лот который вы доставили",
+                           reply_markup=await get_products_list_inl_kb(products=products, mode="prod_id_for_delivery"))
     await DeliveryStatesGroup.prod_id.set()
-    await bot.send_message(message.from_user.id, "Выбирите продукт доставки",
-                           reply_markup=ReplyKeyboardRemove())
 
 
-async def select_product_id_new_delivery(message: types.Message, state: FSMContext):
+async def select_product_id_new_delivery(callback: types.CallbackQuery, state: FSMContext):
     async with state.proxy() as data:
-        data["prod_id"] = int(message.text)
-        print(message.text)
+        product_id = int(callback.data.split(':')[1])
+        data["prod_id"] = product_id
     await DeliveryStatesGroup.next()
-    await bot.send_message(message.from_user.id, "Пришлите одно фото места доставки")
+    await callback.message.answer("Пришлите одно фото места доставки",
+                                  reply_markup=ReplyKeyboardRemove())
+    await callback.answer()
 
 
 async def set_photo_new_delivery(message: types.Message, state: FSMContext):
@@ -288,9 +293,10 @@ def register_admin_handlers(dp: Dispatcher):
     # <Logout admin and show user menu>
     dp.register_message_handler(logout, lambda message: verify(message.from_user.id), commands=["logout"])
 
-    # <Add new product or edit existing product>
+    # <Show all products, add new product and edit existing product>
     dp.register_message_handler(show_all_products, lambda message: verify(message.from_user.id),
                                 commands=["show_product"], state=None)
+
     dp.register_callback_query_handler(redactor_of_product, lambda message: verify(message.from_user.id),
                                        Text(startswith="prod_id_for_redactor:", ignore_case=True), state=None)
     dp.register_callback_query_handler(edit_product, lambda message: verify(message.from_user.id),
@@ -308,11 +314,12 @@ def register_admin_handlers(dp: Dispatcher):
                                 state=ProductStatesGroup.price)
     dp.register_message_handler(set_description_new_prod, state=ProductStatesGroup.description)
 
-    # <Add new delivery or delete existing delivery>
+    # <Show all delivery, add new delivery and delete existing delivery>
     dp.register_message_handler(add_delivery, lambda message: verify(message.from_user.id),
                                 commands=["add_delivery"], state=None)
-    dp.register_message_handler(select_product_id_new_delivery, state=DeliveryStatesGroup.prod_id)
+    dp.register_callback_query_handler(select_product_id_new_delivery, lambda message: verify(message.from_user.id),
+                                       Text(startswith="prod_id_for_delivery:", ignore_case=True),
+                                       state=DeliveryStatesGroup.prod_id)
     dp.register_message_handler(set_photo_new_delivery, content_types=["photo"], state=DeliveryStatesGroup.photo)
     dp.register_message_handler(set_address_new_delivery, state=DeliveryStatesGroup.address)
     dp.register_message_handler(set_description_new_delivery, state=DeliveryStatesGroup.description)
-
