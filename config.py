@@ -1,15 +1,16 @@
 import os
 from dotenv import load_dotenv
 
+
 load_dotenv()
 
-token_telegram = os.environ["telegram_token"]
+token_telegram = os.environ["token_telegram"]
 
 token_cripto = ""
 
 # Admin data for verify
 admin_login = os.environ["admin_login"]
-admin_password = os.environ["admin_pass"]
+admin_password = os.environ["admin_password"]
 admins_id_list = []
 
 client_message_handler_text = {
