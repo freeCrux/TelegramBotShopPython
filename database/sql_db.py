@@ -67,7 +67,7 @@ async def get_all_product_list() -> list:
     return cursor.execute('SELECT * FROM product').fetchall()
 
 
-async def get_product(prod_id: int) -> tuple:
+async def get_product_info(prod_id: int) -> tuple:
     return cursor.execute('SELECT * FROM product WHERE id = ?', (prod_id,)).fetchone()
 
 
@@ -103,6 +103,10 @@ async def add_delivery(state: FSMContext):
             'INSERT INTO delivery (productId, photo, adress, description, dateOfAdding) VALUES (?, ?, ?, ?, ?)',
             (*[val for val in data], str(datetime.now(),)))
         database.commit()
+
+
+async def get_delivery_info_from_id(del_id: int) -> tuple:
+    return cursor.execute('SELECT * FROM product WHERE id = ?', (del_id,)).fetchone()
 
 
 async def get_delivers_list() -> list:

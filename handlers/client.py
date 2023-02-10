@@ -27,7 +27,7 @@ async def show_available_products(message: types.Message):
 
 async def show_product(callback: types.CallbackQuery):
     product_id = int(callback.data.split(':')[1])
-    prod_data: tuple = await sql_db.get_product(prod_id=product_id)
+    prod_data: tuple = await sql_db.get_product_info(prod_id=product_id)
     await bot.send_photo(callback.message.chat.id, prod_data[0],
                          f"Название: {prod_data[1]} | Цена: {prod_data[2]}\nОписание: {prod_data[-1]}",
                          reply_markup=buy_inline_kd)

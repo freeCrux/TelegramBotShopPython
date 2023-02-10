@@ -37,8 +37,10 @@ async def get_delivers_list_inl_kb(delivers: list) -> InlineKeyboardMarkup:
     """
     prod_inl_kb = InlineKeyboardMarkup(row_width=1)
     for pr in delivers:
-        # <pr[1] - name of product>, <pr[2] - price of product>, <pr[4] - id of product>
-        prod_inl_kb.add(InlineKeyboardButton(text=f"{pr[1]} - {pr[2]}$", callback_data=f"delivery:{pr[4]}"), )
+        # <pr[0] - ID of the product that is attached to the delivery>,
+        # <pr[2] - date of adding>, <pr[4] - id of delivery>
+        prod_inl_kb.add(InlineKeyboardButton(text=f"Product ID: {pr[0]} | Date of Adding {pr[4]}",
+                                             callback_data=f"delivery:{pr[5]}"), )
 
     return prod_inl_kb
 

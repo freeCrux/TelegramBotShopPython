@@ -16,6 +16,7 @@ from keyboards.admin_inline_buttons import (
     cancel_input_inline_kd,
     get_product_editor_menu_inline_kd,
     get_products_list_inl_kb,
+    get_delivers_list_inl_kb,
 )
 from keyboards.client_keyboard import client_menu_kb
 
@@ -188,7 +189,7 @@ async def show_all_products(message: types.Message):
 
 async def redactor_of_product(callback: types.CallbackQuery):
     product_id = int(callback.data.split(':')[1])
-    prod_data: tuple = await sql_db.get_product(prod_id=product_id)
+    prod_data: tuple = await sql_db.get_product_info(prod_id=product_id)
     await bot.send_photo(callback.message.chat.id, prod_data[0],
                          f"Название: {prod_data[1]} | ID:{product_id} | Цена: {prod_data[2]}\n"
                          f"Кол-во доступных доставок: {await sql_db.counter_deliveries_by_product(prod_id=product_id)}"
@@ -199,7 +200,7 @@ async def redactor_of_product(callback: types.CallbackQuery):
 
 async def edit_product(callback: types.CallbackQuery, state: FSMContext):
     product_id = int(callback.data.split(':')[1])
-    prod_data: tuple = await sql_db.get_product(prod_id=product_id)
+    prod_data: tuple = await sql_db.get_product_info(prod_id=product_id)
     await ProductStatesGroup.photo.set()
     async with state.proxy() as data:
         data["product_id"] = product_id
@@ -272,18 +273,30 @@ async def set_description_new_delivery(message: types.Message, state: FSMContext
     await state.finish()
 
 
-async def show_delivers(message: types.Message):
-    all_delivers = await sql_db.get_all_product_list()
+async def show_list_of_delivers(message: types.Message):
+    all_delivers = await sql_db.get_delivers_list()
     if len(all_delivers) > 0:
-        await bot.send_message(message.from_user.id, "Список всех доставок",
-                               reply_markup=await get_products_list_inl_kb(
-                                   products=all_delivers, mode="prod_id_for_redactor"))
-        await bot.send_message(message.from_user.id, "Вы можете отредактировать товары",
+        await bot.send_message(message.from_user.id, "Список доставок",
+                               reply_markup=await get_delivers_list_inl_kb(all_delivers))
+        await bot.send_message(message.from_user.id, "Можете полюбоваться проделанной работой!\n"
+                                                     "Мы тут все серьезнае люди так что изменить доставку низя, "
+                                                     "можешь только удалить.",
                                reply_markup=admin_menu_kb)
     else:
-        await bot.send_message(message.from_user.id, "Нет ни одного товара, но вы можете добавить новый товар командой"
-                                                     "/add_product",
+        await bot.send_message(message.from_user.id, "Нет ни одной доставки, но вы можете загяться делом ;)"
+                                                     "/add_delivery",
                                reply_markup=admin_menu_kb)
+
+
+# async def show_delivery(callback: types.CallbackQuery):
+#     delivery_id = int(callback.data.split(':')[1])
+#     delivery_data: tuple = await sql_db.get_delivery_info_from_id(del_id=delivety_id)
+#     await bot.send_photo(callback.message.chat.id, delivery_data[0],
+#                          f"Название: {delivery_data[1]} | ID:{delivery_data} | Цена: {delivery_data[2]}\n"
+#                          f"Кол-во доступных доставок: {await sql_db.counter_deliveries_by_product(prod_id=product_id)}"
+#                          f"\nОписание: {delivery_data[-1]}",
+#                          reply_markup=await get_product_editor_menu_inline_kd(prod_id=product_id))
+#     await callback.answer("Можете редактировать товар")
 
 
 def register_admin_handlers(dp: Dispatcher):
@@ -324,6 +337,8 @@ def register_admin_handlers(dp: Dispatcher):
     dp.register_message_handler(set_description_new_prod, state=ProductStatesGroup.description)
 
     # <Show all delivery, add new delivery and delete existing delivery>
+    dp.register_message_handler(show_list_of_delivers, lambda message: verify(message.from_user.id),
+                                commands=["show_delivery"])
     dp.register_message_handler(add_delivery, lambda message: verify(message.from_user.id),
                                 commands=["add_delivery"], state=None)
     dp.register_callback_query_handler(select_product_id_new_delivery, lambda message: verify(message.from_user.id),
