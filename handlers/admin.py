@@ -197,7 +197,6 @@ async def redactor_of_product(callback: types.CallbackQuery):
     await callback.answer("Можете редактировать товар")
 
 
-
 async def edit_product(callback: types.CallbackQuery, state: FSMContext):
     product_id = int(callback.data.split(':')[1])
     prod_data: tuple = await sql_db.get_product(prod_id=product_id)
@@ -274,7 +273,17 @@ async def set_description_new_delivery(message: types.Message, state: FSMContext
 
 
 async def show_delivers(message: types.Message):
-    pass
+    all_delivers = await sql_db.get_all_product_list()
+    if len(all_delivers) > 0:
+        await bot.send_message(message.from_user.id, "Список всех доставок",
+                               reply_markup=await get_products_list_inl_kb(
+                                   products=all_delivers, mode="prod_id_for_redactor"))
+        await bot.send_message(message.from_user.id, "Вы можете отредактировать товары",
+                               reply_markup=admin_menu_kb)
+    else:
+        await bot.send_message(message.from_user.id, "Нет ни одного товара, но вы можете добавить новый товар командой"
+                                                     "/add_product",
+                               reply_markup=admin_menu_kb)
 
 
 def register_admin_handlers(dp: Dispatcher):

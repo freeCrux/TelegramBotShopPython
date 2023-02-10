@@ -5,6 +5,8 @@ from aiogram.dispatcher.storage import FSMContextProxy
 
 from bot_init import bot
 
+from datetime import datetime
+
 
 def sql_connect():
     global database, cursor
@@ -23,6 +25,7 @@ def sql_connect():
                    'photo TEXT,'
                    'adress TEXT,'
                    'description TEXT,'
+                   'dateOfAdding TEXT,'
                    'id INTEGER PRIMARY KEY AUTOINCREMENT)')
 
     # cursor.execute('CREATE TABLE IF NOT EXISTS sale( '
@@ -96,8 +99,9 @@ async def add_client(message: types.Message):
 
 async def add_delivery(state: FSMContext):
     async with state.proxy() as data:
-        cursor.execute('INSERT INTO delivery (productId, photo, adress, description) VALUES (?, ?, ?, ?)',
-                       tuple(data.values()))
+        cursor.execute(
+            'INSERT INTO delivery (productId, photo, adress, description, dateOfAdding) VALUES (?, ?, ?, ?, ?)',
+            (*[val for val in data], str(datetime.now(),)))
         database.commit()
 
 

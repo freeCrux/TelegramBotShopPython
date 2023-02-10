@@ -28,3 +28,17 @@ async def get_products_list_inl_kb(products: list, mode: str) -> InlineKeyboardM
         prod_inl_kb.add(InlineKeyboardButton(text=f"{pr[1]} - {pr[2]}$", callback_data=f"{mode}:{pr[4]}"), )
 
     return prod_inl_kb
+
+
+async def get_delivers_list_inl_kb(delivers: list) -> InlineKeyboardMarkup:
+    """
+    :param delivers: all product in BD
+    :return: inline keyboard by all products
+    """
+    prod_inl_kb = InlineKeyboardMarkup(row_width=1)
+    for pr in delivers:
+        # <pr[1] - name of product>, <pr[2] - price of product>, <pr[4] - id of product>
+        prod_inl_kb.add(InlineKeyboardButton(text=f"{pr[1]} - {pr[2]}$", callback_data=f"delivery:{pr[4]}"), )
+
+    return prod_inl_kb
+
