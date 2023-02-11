@@ -101,12 +101,12 @@ async def add_delivery(state: FSMContext):
     async with state.proxy() as data:
         cursor.execute(
             'INSERT INTO delivery (productId, photo, adress, description, dateOfAdding) VALUES (?, ?, ?, ?, ?)',
-            (*[val for val in data], str(datetime.now(),)))
+            (*[val for val in data.values()], str(datetime.now(),)))
         database.commit()
 
 
 async def get_delivery_info_from_id(del_id: int) -> tuple:
-    return cursor.execute('SELECT * FROM product WHERE id = ?', (del_id,)).fetchone()
+    return cursor.execute('SELECT * FROM delivery WHERE id = ?', (del_id,)).fetchone()
 
 
 async def get_delivers_list() -> list:
@@ -115,3 +115,9 @@ async def get_delivers_list() -> list:
 
 async def get_delivers_from_product_id(prod_id: int) -> list:
     return cursor.execute('SELECT * FROM delivery WHERE productId = ?', (prod_id,)).fetchall()
+
+
+async def delete_delivery(del_id: int):
+    cursor.execute('DELETE FROM delivery WHERE id = ?', (del_id,))
+    database.commit()
+

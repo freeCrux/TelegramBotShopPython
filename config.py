@@ -11,7 +11,9 @@ token_cripto = ""
 # Admin data for verify
 admin_login = os.environ["admin_login_env"]
 admin_password = os.environ["admin_password_env"]
-admins_id_list = []
+admin = int(os.environ["admin_for_test"])
+admins_id_list = list()
+admins_id_list.append(admin)
 
 client_message_handler_text = {
     "start": "Привет ты попал в магазин выпечки!\n\n",
