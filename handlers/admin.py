@@ -190,7 +190,7 @@ async def redactor_of_product(callback: types.CallbackQuery):
     product_id = int(callback.data.split(':')[1])
     prod_data: tuple = await sql_db.get_product_info(prod_id=product_id)
     await bot.send_photo(callback.message.chat.id, prod_data[0],
-                         f"Название: {prod_data[1]} | ID: {product_id} | Цена: {prod_data[2]}\n"
+                         f"Название: {prod_data[1]} | ID: {product_id} | Цена: {prod_data[2]}$\n"
                          f"Кол-во доступных доставок: {await sql_db.counter_deliveries_by_product(prod_id=product_id)}"
                          f"\nОписание: {prod_data[3]}",
                          reply_markup=await get_product_editor_menu_inline_kd(prod_id=product_id))
