@@ -11,8 +11,17 @@ from database import sql_db
 
 async def start_help(message: types.Message):
     await sql_db.add_client(message=message)
-    await bot.send_message(message.from_user.id, client_message_handler_text["start"] +
-                           client_message_handler_text["help"], reply_markup=client_menu_kb)
+    await bot.send_message(message.from_user.id, "Привет ты попал в магазин выпечки!\n\n"
+                           "Вы по любым вопросам вы всегда можете обратиться в поддержку @freecrux\n"
+                           "В случае проблем с заказом вам понадобиться ваш ИД (/wallet) и ИД вашего заказа (/myBuy)\n"
+                           "\nДля покупки вам нужно пополнить счет, введите команду /pay или "
+                           "выберите в меню пункт [Пополнить баланс]\n\n"
+                           "Для простотра баланса и общей информации о вас, введите команду /wallet или "
+                           "выберите в меню пункт [Баланс]\n\n"
+                           "Список товараов обновляеться динамически при поступлении нового товара, для просмтора "
+                           "товара в наличии введите команду /products или выберите в меню пункт [Ассортимент]\n\n"
+                           "Для просмотра последних покупок введите команду "
+                           "/myBuy или выберите в меню пункт [Мои покупки]", reply_markup=client_menu_kb)
 
 
 async def show_available_products(message: types.Message):
