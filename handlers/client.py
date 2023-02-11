@@ -1,7 +1,7 @@
 from aiogram import types, Dispatcher
 from aiogram.dispatcher.filters import Text
 
-from keyboards.client_inline_buttons import get_products_list_inl_kb, buy_inline_kd
+from keyboards.client_inline_buttons import *
 from keyboards.client_keyboard import client_menu_kb
 
 from bot_init import bot, dp
@@ -9,7 +9,7 @@ from database import sql_db
 
 
 async def start_help(message: types.Message):
-    await sql_db.add_client_if_not_exist(client_id=message.from_user.id)
+    await sql_db.add_client(client_id=message.from_user.id)
     await bot.send_message(message.from_user.id, "Привет ты попал в магазин выпечки!\n\n"
                            "Вы по любым вопросам вы всегда можете обратиться в поддержку @freecrux\n"
                            "В случае проблем с заказом вам понадобиться ваш ИД (/wallet) и ИД вашего заказа (/myBuy)\n"
@@ -38,24 +38,33 @@ async def show_product(callback: types.CallbackQuery):
     prod_data: tuple = await sql_db.get_product_info(prod_id=product_id)
     await bot.send_photo(callback.message.chat.id, prod_data[0],
                          f"Название: {prod_data[1]} | Цена: {prod_data[2]}$\nОписание: {prod_data[3]}",
-                         reply_markup=buy_inline_kd)
+                         reply_markup=await get_buy_inl_kb(prod_id=product_id))
 
 
-async def show_balance(message: types.Message):
-    await sql_db.add_client_if_not_exist(client_id=message.from_user.id)
-    await sql_db.add_client_if_not_exist(client_id=message.from_user.id)
-    await bot.send_message(message.from_user.id, "balance", reply_markup=client_menu_kb)
+async def buy_product(callback: types.CallbackQuery):
+    product_id = int(callback.data.split(':')[1])
+    product_price: int = await sql_db.get_product_price(prod_id=product_id)
+    client_id = callback.message.chat.id
+    balance: int = await sql_db.get_client_balance(client_id=client_id)
+    if balance >= product_price:
+        await sql_db.change_client_balance(client_id=client_id, cash=(-1) * product_price)
+        # TODO add sales
+        await callback.answer("Поздравляю с покупкой")
+    else:
+        await callback.answer("На балансе недостаточно средств")
+
+
+async def show_client_info(message: types.Message):
+    data: tuple = await sql_db.get_client_data(client_id=message.from_user.id)
+    await bot.send_message(message.from_user.id, f"Твой ID: {data[0]}\nБаланс счета: {data[1]}$",
+                           reply_markup=client_menu_kb)
 
 
 async def deposit_money(message: types.Message):
-    await sql_db.add_client_if_not_exist(client_id=message.from_user.id)
-    await sql_db.add_client_if_not_exist(client_id=message.from_user.id)
     await bot.send_message(message.from_user.id, "deposit", reply_markup=client_menu_kb)
 
 
 async def show_my_last_bye(message: types.Message):
-    await sql_db.add_client_if_not_exist(client_id=message.from_user.id)
-    await sql_db.add_client_if_not_exist(client_id=message.from_user.id)
     await bot.send_message(message.from_user.id, "myLastBuy", reply_markup=client_menu_kb)
 
 
@@ -67,10 +76,12 @@ def register_client_handlers(dp: Dispatcher):
     # <Show products in stock>
     dp.register_message_handler(show_available_products, commands=["products"])
     dp.register_message_handler(show_available_products, Text(equals="Ассортимент", ignore_case=True))
+    dp.register_callback_query_handler(show_product, Text(startswith="prod_id:", ignore_case=True))
+    dp.register_callback_query_handler(buy_product, Text(startswith="buy_prod_id:", ignore_case=True))
 
     # <Show products in stock>
-    dp.register_message_handler(show_balance, commands=["balance"])
-    dp.register_message_handler(show_balance, Text(equals="Баланс", ignore_case=True))
+    dp.register_message_handler(show_client_info, commands=["balance"])
+    dp.register_message_handler(show_client_info, Text(equals="Баланс", ignore_case=True))
 
     # <Show products in stock>
     dp.register_message_handler(deposit_money, commands=["paid"])
@@ -79,4 +90,4 @@ def register_client_handlers(dp: Dispatcher):
     # <Show products in stock>
     dp.register_message_handler(show_my_last_bye, commands=["myBuy"])
     dp.register_message_handler(show_my_last_bye, Text(equals="Мои покупки", ignore_case=True))
-    dp.register_callback_query_handler(show_product, Text(startswith="prod_id:", ignore_case=True))
+

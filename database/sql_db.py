@@ -15,7 +15,7 @@ def sql_connect():
 
     cursor.execute('CREATE TABLE IF NOT EXISTS client( '
                    'id INTEGER PRIMARY KEY,'
-                   'wallet INTEGER DEFAULT 0,'
+                   'balance INTEGER DEFAULT 0,'
                    'dateOfLastDeposit TEXT DEFAULT "never",'
                    'paymentOfLastDeposit INTEGER DEFAULT 0,'
                    'paid INTEGER DEFAULT 0,'
@@ -92,17 +92,58 @@ async def delete_product(prod_id: int):
     database.commit()
 
 
+async def get_product_price(prod_id: int) -> int:
+    price: int = cursor.execute('SELECT price FROM product WHERE id = ?', (prod_id,)).fetchone()[0]
+
+    return price
+
+
 # -------------------- #
 # Operation on clients #
 # -------------------- #
 
 
-async def add_client_if_not_exist(client_id: int):
+def add_client_if_not_exist(func):
+    async def wrapper(client_id, *args, **kwargs):
+        await add_client(client_id)
+
+        return await func(client_id, *args, **kwargs)
+    return wrapper
+
+
+async def add_client(client_id: int):
     client = cursor.execute(f'SELECT id FROM client WHERE id = ?', (client_id,)).fetchone()
     if client is None:
-        print(client_id)
         cursor.execute('INSERT INTO client (id) VALUES (?)', (client_id,))
         database.commit()
+
+
+@add_client_if_not_exist
+async def get_client_balance(client_id: int) -> int:
+    balance: int = cursor.execute(f'SELECT balance FROM client WHERE id = ?', (client_id,)).fetchone()[0]
+
+    return balance
+
+
+@add_client_if_not_exist
+async def change_client_balance(client_id: int, cash: int):
+    """
+    :param cash: Can be positive if client deposit cash and negative if he buys something
+    """
+    balance: int = cursor.execute(f'SELECT balance FROM client WHERE id = ?', (client_id,)).fetchone()[0]
+    if cash > 0 or balance + cash >= 0:
+        cursor.execute('UPDATE client SET (balance) = (?) WHERE id = ?', (balance + cash, client_id,))
+    else:
+        raise Exception("Not enough money to pay")
+
+
+@add_client_if_not_exist
+async def get_client_data(client_id: int) -> tuple:
+    data: tuple = cursor.execute(f'SELECT * FROM client WHERE id = ?', (client_id,)).fetchone()
+
+    return data
+
+
 
 
 # --------------------- #

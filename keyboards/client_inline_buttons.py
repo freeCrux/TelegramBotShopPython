@@ -1,9 +1,12 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
-buy_button = InlineKeyboardButton(text="Купить", callback_data="buy")
-buy_inline_kd = InlineKeyboardMarkup(row_width=1)
-buy_inline_kd.add(buy_button)
+async def get_buy_inl_kb(prod_id: int) -> InlineKeyboardMarkup:
+    buy_button = InlineKeyboardButton(text="Купить", callback_data=f"buy_prod_id:{prod_id}")
+    inl_kb = InlineKeyboardMarkup(row_width=1)
+    inl_kb.add(buy_button)
+
+    return inl_kb
 
 
 async def get_products_list_inl_kb(products: list) -> InlineKeyboardMarkup:
