@@ -59,6 +59,9 @@ async def add_product(prod_data: FSMContextProxy):
 
 
 async def get_available_product_list() -> list:
+    """
+    :return: products list that have more one delivery
+    """
     available_prod = list()
     available_prod_id: list = [pr_id[0] for pr_id in cursor.execute('SELECT productId FROM delivery').fetchall()]
     for pr_id in available_prod_id:
@@ -142,8 +145,6 @@ async def get_client_data(client_id: int) -> tuple:
     data: tuple = cursor.execute(f'SELECT * FROM client WHERE id = ?', (client_id,)).fetchone()
 
     return data
-
-
 
 
 # --------------------- #
