@@ -1,5 +1,4 @@
 from aiogram import executor, types
-from config import client_message_handler_text
 from bot_init import bot, dp
 from handlers import client, admin
 from database import sql_db

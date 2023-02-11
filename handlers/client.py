@@ -5,12 +5,11 @@ from keyboards.client_inline_buttons import get_products_list_inl_kb, buy_inline
 from keyboards.client_keyboard import client_menu_kb
 
 from bot_init import bot, dp
-from config import client_message_handler_text
 from database import sql_db
 
 
 async def start_help(message: types.Message):
-    await sql_db.add_client(message=message)
+    await sql_db.add_client_if_not_exist(client_id=message.from_user.id)
     await bot.send_message(message.from_user.id, "Привет ты попал в магазин выпечки!\n\n"
                            "Вы по любым вопросам вы всегда можете обратиться в поддержку @freecrux\n"
                            "В случае проблем с заказом вам понадобиться ваш ИД (/wallet) и ИД вашего заказа (/myBuy)\n"
@@ -27,7 +26,7 @@ async def start_help(message: types.Message):
 async def show_available_products(message: types.Message):
     products: list = await sql_db.get_available_product_list()
     if len(products) > 0:
-        await bot.send_message(message.from_user.id, "Продукция:\n",
+        await bot.send_message(message.from_user.id, "Весь стафф:\n",
                                reply_markup=await get_products_list_inl_kb(products=products))
     else:
         await bot.send_message(message.from_user.id, "К великому сожалению товар закончилю, приходи позже ;)",
@@ -43,15 +42,21 @@ async def show_product(callback: types.CallbackQuery):
 
 
 async def show_balance(message: types.Message):
-    await bot.send_message(message.from_user.id, client_message_handler_text["balance"], reply_markup=client_menu_kb)
+    await sql_db.add_client_if_not_exist(client_id=message.from_user.id)
+    await sql_db.add_client_if_not_exist(client_id=message.from_user.id)
+    await bot.send_message(message.from_user.id, "balance", reply_markup=client_menu_kb)
 
 
 async def deposit_money(message: types.Message):
-    await bot.send_message(message.from_user.id, client_message_handler_text["deposit"], reply_markup=client_menu_kb)
+    await sql_db.add_client_if_not_exist(client_id=message.from_user.id)
+    await sql_db.add_client_if_not_exist(client_id=message.from_user.id)
+    await bot.send_message(message.from_user.id, "deposit", reply_markup=client_menu_kb)
 
 
 async def show_my_last_bye(message: types.Message):
-    await bot.send_message(message.from_user.id, client_message_handler_text["myLastBuy "], reply_markup=client_menu_kb)
+    await sql_db.add_client_if_not_exist(client_id=message.from_user.id)
+    await sql_db.add_client_if_not_exist(client_id=message.from_user.id)
+    await bot.send_message(message.from_user.id, "myLastBuy", reply_markup=client_menu_kb)
 
 
 def register_client_handlers(dp: Dispatcher):

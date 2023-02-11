@@ -13,6 +13,15 @@ def sql_connect():
     database = sqlite3.connect("server.db")
     cursor = database.cursor()
 
+    cursor.execute('CREATE TABLE IF NOT EXISTS client( '
+                   'id INTEGER PRIMARY KEY,'
+                   'wallet INTEGER DEFAULT 0,'
+                   'dateOfLastDeposit TEXT DEFAULT "never",'
+                   'paymentOfLastDeposit INTEGER DEFAULT 0,'
+                   'paid INTEGER DEFAULT 0,'
+                   'salesCount INTEGER DEFAULT 0)')
+
+
     cursor.execute('CREATE TABLE IF NOT EXISTS product( '
                    'photo TEXT,'
                    'name TEXT,'
@@ -88,8 +97,12 @@ async def delete_product(prod_id: int):
 # -------------------- #
 
 
-async def add_client(message: types.Message):
-    pass
+async def add_client_if_not_exist(client_id: int):
+    client = cursor.execute(f'SELECT id FROM client WHERE id = ?', (client_id,)).fetchone()
+    if client is None:
+        print(client_id)
+        cursor.execute('INSERT INTO client (id) VALUES (?)', (client_id,))
+        database.commit()
 
 
 # --------------------- #
