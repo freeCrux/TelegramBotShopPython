@@ -153,6 +153,10 @@ async def set_price_new_prod(message: types.Message, state: FSMContext):
     await ProductStatesGroup.next()
 
 
+async def description_is_invalid(message: types.Message):
+    return await message.reply("Дорогой куда разогнался, длинна описания должна быть меньше 1024 символов")
+
+
 async def set_description_new_prod(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["description"] = message.text
@@ -186,9 +190,9 @@ async def redactor_of_product(callback: types.CallbackQuery):
     product_id = int(callback.data.split(':')[1])
     prod_data: tuple = await sql_db.get_product_info(prod_id=product_id)
     await bot.send_photo(callback.message.chat.id, prod_data[0],
-                         f"Название: {prod_data[1]} | ID:{product_id} | Цена: {prod_data[2]}\n"
+                         f"Название: {prod_data[1]} | ID: {product_id} | Цена: {prod_data[2]}\n"
                          f"Кол-во доступных доставок: {await sql_db.counter_deliveries_by_product(prod_id=product_id)}"
-                         f"\nОписание: {prod_data[-1]}",
+                         f"\nОписание: {prod_data[3]}",
                          reply_markup=await get_product_editor_menu_inline_kd(prod_id=product_id))
     await callback.answer("Можете редактировать товар")
 
@@ -341,6 +345,8 @@ def register_admin_handlers(dp: Dispatcher):
                                 state=ProductStatesGroup.price)
     dp.register_message_handler(set_price_new_prod, lambda message: message.text.isdigit(),
                                 state=ProductStatesGroup.price)
+    dp.register_message_handler(description_is_invalid, lambda message: len(message.text) > 1024,
+                                state=ProductStatesGroup.description)
     dp.register_message_handler(set_description_new_prod, state=ProductStatesGroup.description)
 
     # <Show all delivery, add new delivery and delete existing delivery>
@@ -350,6 +356,7 @@ def register_admin_handlers(dp: Dispatcher):
                                        Text(startswith="delivery_id:", ignore_case=True))
     dp.register_callback_query_handler(delete_delivery, lambda message: verify(message.from_user.id),
                                        Text(startswith="id_delivery_to_delete:", ignore_case=True))
+
     dp.register_message_handler(add_delivery, lambda message: verify(message.from_user.id),
                                 commands=["add_delivery"], state=None)
     dp.register_callback_query_handler(select_product_id_new_delivery, lambda message: verify(message.from_user.id),
@@ -357,4 +364,6 @@ def register_admin_handlers(dp: Dispatcher):
                                        state=DeliveryStatesGroup.prod_id)
     dp.register_message_handler(set_photo_new_delivery, content_types=["photo"], state=DeliveryStatesGroup.photo)
     dp.register_message_handler(set_address_new_delivery, state=DeliveryStatesGroup.address)
+    dp.register_message_handler(description_is_invalid, lambda message: len(message.text) > 1024,
+                                state=DeliveryStatesGroup.description)
     dp.register_message_handler(set_description_new_delivery, state=DeliveryStatesGroup.description)
