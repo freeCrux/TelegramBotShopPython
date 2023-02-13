@@ -17,6 +17,10 @@ from keyboards.client_keyboard import client_menu_kb
 
 from database import sql_db
 
+NAME_LIMIT_SIZE = 64
+PRICE_LIMIT_SIZE = 6
+DESCRIPTION_LIMIT_SIZE = 960 - NAME_LIMIT_SIZE - PRICE_LIMIT_SIZE
+
 
 # ----------------------------------- #
 # Admin input fields and cancel input #
@@ -53,7 +57,7 @@ async def cancel_handler(callback: types.CallbackQuery, state: FSMContext):
 
 
 async def cmd_menu(message: types.Message):
-    await bot.send_message(message.from_user.id, "Right now u can add a new product", reply_markup=admin_menu_kb)
+    await bot.send_message(message.from_user.id, "Ты Админ можешь действовать.", reply_markup=admin_menu_kb)
 
 
 # ------------------------------------------- #
@@ -136,7 +140,7 @@ async def set_name_new_prod(message: types.Message, state: FSMContext):
     await bot.send_message(message.from_user.id, "Укажите цену товара")
 
 
-async def price_is_invalid(message: types.Message):
+async def processing_invalid_price(message: types.Message):
     return await message.reply("Бро что за дела! Цена должна быть только в цифрах (Пример: 65)")
 
 
@@ -153,8 +157,8 @@ async def set_price_new_prod(message: types.Message, state: FSMContext):
     await ProductStatesGroup.next()
 
 
-async def processing_invalid_description(message: types.Message):
-    return await message.reply("Дорогой куда разогнался, длинна описания должна быть меньше 900 символов")
+async def processing_too_long_message(message: types.Message):
+    return await message.reply(f"Дорогой куда разогнался, слишком много символов")
 
 
 async def set_description_new_prod(message: types.Message, state: FSMContext):
@@ -231,8 +235,9 @@ async def delete_product(callback: types.CallbackQuery):
 
 
 async def add_delivery(message: types.Message):
-    await bot.send_message(message.from_user.id, "Вы в режиме добавляения новой доставки для отмены нажмите кнопку ниже",
-                                  reply_markup=cancel_input_inline_kd)
+    await bot.send_message(message.from_user.id,
+                           "Вы в режиме добавляения новой доставки для отмены нажмите кнопку ниже",
+                           reply_markup=cancel_input_inline_kd)
     products = await sql_db.get_all_product_list()
     await bot.send_message(message.from_user.id, "Выберите лот который вы доставили",
                            reply_markup=await get_products_list_inl_kb(products=products, mode="prod_id_for_delivery"))
@@ -336,16 +341,23 @@ def register_admin_handlers(dp: Dispatcher):
                                        Text(startswith="id_product_to_change:", ignore_case=True))
     dp.register_callback_query_handler(delete_product, lambda message: verify(message.from_user.id),
                                        Text(startswith="id_product_to_delete:", ignore_case=True))
-
+    # <Add photo>
     dp.register_message_handler(add_product, lambda message: verify(message.from_user.id),
                                 commands=["add_product"], state=None)
     dp.register_message_handler(set_photo_new_prod, content_types=["photo"], state=ProductStatesGroup.photo)
+    # <Set name>
+    dp.register_message_handler(processing_too_long_message,
+                                lambda message: len(message.text) <= NAME_LIMIT_SIZE, state=ProductStatesGroup.price)
     dp.register_message_handler(set_name_new_prod, state=ProductStatesGroup.name)
-    dp.register_message_handler(price_is_invalid, lambda message: not message.text.isdigit(),
+    # <Set price>
+    dp.register_message_handler(processing_invalid_price,
+                                lambda message: not message.text.isdigit() and int(message.text) <= 9999,
                                 state=ProductStatesGroup.price)
     dp.register_message_handler(set_price_new_prod, lambda message: message.text.isdigit(),
                                 state=ProductStatesGroup.price)
-    dp.register_message_handler(processing_invalid_description, lambda message: len(message.text) > 900,
+    # <Set description>
+    dp.register_message_handler(processing_too_long_message,
+                                lambda message: len(message.text) > DESCRIPTION_LIMIT_SIZE,
                                 state=ProductStatesGroup.description)
     dp.register_message_handler(set_description_new_prod, state=ProductStatesGroup.description)
 
@@ -363,7 +375,10 @@ def register_admin_handlers(dp: Dispatcher):
                                        Text(startswith="prod_id_for_delivery:", ignore_case=True),
                                        state=DeliveryStatesGroup.prod_id)
     dp.register_message_handler(set_photo_new_delivery, content_types=["photo"], state=DeliveryStatesGroup.photo)
+    dp.register_message_handler(processing_too_long_message,
+                                lambda message: len(message.text) <= NAME_LIMIT_SIZE, state=DeliveryStatesGroup.address)
     dp.register_message_handler(set_address_new_delivery, state=DeliveryStatesGroup.address)
-    dp.register_message_handler(processing_invalid_description, lambda message: len(message.text) > 900,
+    dp.register_message_handler(processing_too_long_message,
+                                lambda message: len(message.text) > DESCRIPTION_LIMIT_SIZE,
                                 state=DeliveryStatesGroup.description)
     dp.register_message_handler(set_description_new_delivery, state=DeliveryStatesGroup.description)
