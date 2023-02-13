@@ -21,7 +21,6 @@ def sql_connect():
                    'paid INTEGER DEFAULT 0,'
                    'salesCount INTEGER DEFAULT 0)')
 
-
     cursor.execute('CREATE TABLE IF NOT EXISTS product( '
                    'photo TEXT,'
                    'name TEXT,'
@@ -37,12 +36,12 @@ def sql_connect():
                    'dateOfAdding TEXT,'
                    'id INTEGER PRIMARY KEY AUTOINCREMENT)')
 
-    # cursor.execute('CREATE TABLE IF NOT EXISTS sale( '
-    #                'photo TEXT,'
-    #                'name TEXT PRIMARY KEY,'
-    #                'price INTEGER,'
-    #                # 'photo BLOB NOT NULL, '
-    #                'description TEXT)')
+    cursor.execute('CREATE TABLE IF NOT EXISTS sale( '
+                   'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+                   'dateSales TEXT,'
+                   'idBuyer BIGINT,'
+                   'idDelivary INTEGER,'
+                   'idProduct INTEGER)')
 
     database.commit()
 
@@ -80,8 +79,22 @@ async def get_all_product_list() -> list:
 
 
 async def get_product_info(prod_id: int) -> tuple:
-    return cursor.execute('SELECT * FROM product WHERE id = ?', (prod_id,)).fetchone()
+    data = cursor.execute('SELECT * FROM product WHERE id = ?', (prod_id,)).fetchone()
+    if data is not None:
+        return data
+    else:
+        raise Exception("Product is not exist")
 
+
+async def get_product_name(prod_id: int) -> str:
+    """
+    :return: product name if it`s exist else -> product not found
+    """
+    name = cursor.execute(f'SELECT name FROM product WHERE id = ?', (prod_id,)).fetchone()
+    if name is not None:
+        return name
+
+    return "Товар не найден"
 
 async def change_product(prod_data: FSMContextProxy):
     cursor.execute('UPDATE product SET (photo, name, price, description) = (?, ?, ?, ?) WHERE id = ?',
@@ -175,4 +188,3 @@ async def get_delivers_from_product_id(prod_id: int) -> list:
 async def delete_delivery(del_id: int):
     cursor.execute('DELETE FROM delivery WHERE id = ?', (del_id,))
     database.commit()
-

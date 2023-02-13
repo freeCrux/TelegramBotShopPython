@@ -153,8 +153,8 @@ async def set_price_new_prod(message: types.Message, state: FSMContext):
     await ProductStatesGroup.next()
 
 
-async def description_is_invalid(message: types.Message):
-    return await message.reply("Дорогой куда разогнался, длинна описания должна быть меньше 1024 символов")
+async def processing_invalid_description(message: types.Message):
+    return await message.reply("Дорогой куда разогнался, длинна описания должна быть меньше 900 символов")
 
 
 async def set_description_new_prod(message: types.Message, state: FSMContext):
@@ -292,9 +292,11 @@ async def show_list_of_delivers(message: types.Message):
 async def show_delivery(callback: types.CallbackQuery):
     delivery_id = int(callback.data.split(':')[1])
     delivery_data: tuple = await sql_db.get_delivery_info_from_id(del_id=delivery_id)
+    product_id_for_delivery: int = delivery_data[0]
+    product_name: str = await sql_db.get_product_name(prod_id=product_id_for_delivery)
     await bot.send_photo(callback.message.chat.id, delivery_data[1],
-                         f"ID Продукта к которому относится: {delivery_data[0]} | ID самой доствки:{delivery_id}\n"
-                         f"Адресс: {delivery_data[2]} | Время добавления: {delivery_data[4]}\n"
+                         f"Наименование продукта к которому относится: {product_name} | ID самой доствки:{delivery_id}"
+                         f"\nАдресс: {delivery_data[2]} | Время добавления: {delivery_data[4]}\n"
                          f"Описание: {delivery_data[3]}",
                          reply_markup=await get_delivery_editor_menu_inline_kd(del_id=delivery_id))
     await callback.answer("Просмотр доставки")
@@ -326,7 +328,7 @@ def register_admin_handlers(dp: Dispatcher):
     # <Logout admin and show user menu>
     dp.register_message_handler(logout, lambda message: verify(message.from_user.id), commands=["logout"])
 
-    # <Show all products, add new product and edit existing product>
+    # <Show all products, add new product and edit is existing product>
     dp.register_message_handler(show_all_products, lambda message: verify(message.from_user.id),
                                 commands=["show_product"], state=None)
 
@@ -345,7 +347,7 @@ def register_admin_handlers(dp: Dispatcher):
                                 state=ProductStatesGroup.price)
     dp.register_message_handler(set_price_new_prod, lambda message: message.text.isdigit(),
                                 state=ProductStatesGroup.price)
-    dp.register_message_handler(description_is_invalid, lambda message: len(message.text) > 1024,
+    dp.register_message_handler(processing_invalid_description, lambda message: len(message.text) > 900,
                                 state=ProductStatesGroup.description)
     dp.register_message_handler(set_description_new_prod, state=ProductStatesGroup.description)
 
@@ -364,6 +366,6 @@ def register_admin_handlers(dp: Dispatcher):
                                        state=DeliveryStatesGroup.prod_id)
     dp.register_message_handler(set_photo_new_delivery, content_types=["photo"], state=DeliveryStatesGroup.photo)
     dp.register_message_handler(set_address_new_delivery, state=DeliveryStatesGroup.address)
-    dp.register_message_handler(description_is_invalid, lambda message: len(message.text) > 1024,
+    dp.register_message_handler(processing_invalid_description, lambda message: len(message.text) > 900,
                                 state=DeliveryStatesGroup.description)
     dp.register_message_handler(set_description_new_delivery, state=DeliveryStatesGroup.description)
