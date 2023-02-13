@@ -7,6 +7,8 @@ from bot_init import bot
 
 from datetime import datetime
 
+from Utils import ValueIsNoneException
+
 
 def sql_connect():
     global database, cursor
@@ -155,7 +157,7 @@ async def change_client_balance(client_id: int, cash: int):
         cursor.execute('UPDATE client SET (balance) = (?) WHERE id = ?', (balance + cash, client_id,))
         database.commit()
     else:
-        raise Exception("Not enough money to pay")
+        raise ValueIsNoneException("Not enough money to pay")
 
 
 @add_client_if_not_exist
@@ -183,7 +185,6 @@ async def delete_delivery(del_id: int):
     database.commit()
 
 
-
 async def get_delivery_info_from_id(del_id: int) -> tuple:
     return cursor.execute('SELECT * FROM delivery WHERE id = ?', (del_id,)).fetchone()
 
@@ -196,7 +197,7 @@ async def get_id_available_deliver(prod_id: int) -> int:
     del_id: int = cursor.execute(f'SELECT id FROM delivery WHERE productId = (?) AND available = TRUE',
                                  (prod_id,)).fetchone()[0]
     if del_id is None:
-        raise Exception("Not exist available delivery for this product id")
+        raise ValueIsNoneException("Not exist available delivery for this product id")
 
     return del_id
 

@@ -1,6 +1,7 @@
 from aiogram import types, Dispatcher
 from aiogram.dispatcher.filters import Text
 
+from Utils import ValueIsNoneException
 from keyboards.client_inline_buttons import *
 from keyboards.client_keyboard import client_menu_kb
 
@@ -62,7 +63,7 @@ async def buy_product(callback: types.CallbackQuery):
                                  f"Описание: {delivery_data[3]}",
                                  reply_markup=client_menu_kb)
             await callback.answer("Поздравляю с покупкой")
-        except Exception:
+        except ValueIsNoneException:
             await callback.message.answer("Упс, техническая неполадка. Покупка не состоялась.")
             await callback.answer("Ошибка")
 
