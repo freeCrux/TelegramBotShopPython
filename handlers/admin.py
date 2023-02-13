@@ -252,8 +252,6 @@ async def select_product_id_new_delivery(callback: types.CallbackQuery, state: F
 async def set_photo_new_delivery(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["photo"] = message.photo[0].file_id
-        print(message.photo[0].file_id)
-        print(message)
     await DeliveryStatesGroup.next()
     await bot.send_message(message.from_user.id, "Пришлите адресс (Пример: 12331.123.123123) ")
 
@@ -275,7 +273,7 @@ async def set_description_new_delivery(message: types.Message, state: FSMContext
 
 
 async def show_list_of_delivers(message: types.Message):
-    all_delivers = await sql_db.get_delivers_list()
+    all_delivers = await sql_db.get_available_delivers_list()
     if len(all_delivers) > 0:
         await bot.send_message(message.from_user.id, "Список доставок",
                                reply_markup=await get_delivers_list_inl_kb(all_delivers))
@@ -295,7 +293,7 @@ async def show_delivery(callback: types.CallbackQuery):
     product_id_for_delivery: int = delivery_data[0]
     product_name: str = await sql_db.get_product_name(prod_id=product_id_for_delivery)
     await bot.send_photo(callback.message.chat.id, delivery_data[1],
-                         f"Наименование продукта к которому относится: {product_name} | ID самой доствки:{delivery_id}"
+                         f"Наименование продукта к которому относится: {product_name} | ID доствки: {delivery_id}"
                          f"\nАдресс: {delivery_data[2]} | Время добавления: {delivery_data[4]}\n"
                          f"Описание: {delivery_data[3]}",
                          reply_markup=await get_delivery_editor_menu_inline_kd(del_id=delivery_id))
@@ -305,7 +303,7 @@ async def show_delivery(callback: types.CallbackQuery):
 async def delete_delivery(callback: types.CallbackQuery):
     delivery_id = int(callback.data.split(':')[1])
     await sql_db.delete_delivery(del_id=delivery_id)
-    delivers = await sql_db.get_delivers_list()
+    delivers = await sql_db.get_available_delivers_list()
     await callback.message.answer("Доствка успешна удалена",
                                   reply_markup=await get_delivers_list_inl_kb(
                                       delivers=delivers))

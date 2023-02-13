@@ -34,14 +34,15 @@ def sql_connect():
                    'adress TEXT,'
                    'description TEXT,'
                    'dateOfAdding TEXT,'
-                   'id INTEGER PRIMARY KEY AUTOINCREMENT)')
+                   'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+                   'available BOOLEAN DEFAULT TRUE)')
 
     cursor.execute('CREATE TABLE IF NOT EXISTS sale( '
                    'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+                   'buyerId BIGINT,'
+                   'deliveryId INTEGER,'
                    'dateSales TEXT,'
-                   'idBuyer BIGINT,'
-                   'idDelivary INTEGER,'
-                   'idProduct INTEGER)')
+                   'paid INTEGER)')
 
     database.commit()
 
@@ -62,15 +63,17 @@ async def get_available_product_list() -> list:
     :return: products list that have more one delivery
     """
     available_prod = list()
-    available_prod_id: list = [pr_id[0] for pr_id in cursor.execute('SELECT productId FROM delivery').fetchall()]
+    available_prod_id: set = set(
+        pr_id[0] for pr_id in cursor.execute('SELECT productId FROM delivery WHERE available = TRUE').fetchall())
     for pr_id in available_prod_id:
-        available_prod += cursor.execute('SELECT * FROM product WHERE id = ?', (pr_id,)).fetchall()
+        available_prod.append(cursor.execute('SELECT * FROM product WHERE id = ?', (pr_id,)).fetchone())
 
     return available_prod
 
 
 async def counter_deliveries_by_product(prod_id: int) -> int:
-    available_delivery = cursor.execute('SELECT * FROM delivery WHERE productId = ?', (prod_id,)).fetchall()
+    available_delivery = cursor.execute('SELECT * FROM delivery WHERE productId = ? AND available = TRUE',
+                                        (prod_id,)).fetchall()
     return len(available_delivery)
 
 
@@ -90,11 +93,12 @@ async def get_product_name(prod_id: int) -> str:
     """
     :return: product name if it`s exist else -> product not found
     """
-    name = cursor.execute(f'SELECT name FROM product WHERE id = ?', (prod_id,)).fetchone()
+    name = cursor.execute(f'SELECT name FROM product WHERE id = ?', (prod_id,)).fetchone()[0]
     if name is not None:
         return name
 
     return "Товар не найден"
+
 
 async def change_product(prod_data: FSMContextProxy):
     cursor.execute('UPDATE product SET (photo, name, price, description) = (?, ?, ?, ?) WHERE id = ?',
@@ -149,6 +153,7 @@ async def change_client_balance(client_id: int, cash: int):
     balance: int = cursor.execute(f'SELECT balance FROM client WHERE id = ?', (client_id,)).fetchone()[0]
     if cash > 0 or balance + cash >= 0:
         cursor.execute('UPDATE client SET (balance) = (?) WHERE id = ?', (balance + cash, client_id,))
+        database.commit()
     else:
         raise Exception("Not enough money to pay")
 
@@ -169,22 +174,52 @@ async def add_delivery(state: FSMContext):
     async with state.proxy() as data:
         cursor.execute(
             'INSERT INTO delivery (productId, photo, adress, description, dateOfAdding) VALUES (?, ?, ?, ?, ?)',
-            (*[val for val in data.values()], str(datetime.now(),)))
+            (*[val for val in data.values()], str(datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),)))
         database.commit()
+
+
+async def delete_delivery(del_id: int):
+    cursor.execute('DELETE FROM delivery WHERE id = ?', (del_id,))
+    database.commit()
+
 
 
 async def get_delivery_info_from_id(del_id: int) -> tuple:
     return cursor.execute('SELECT * FROM delivery WHERE id = ?', (del_id,)).fetchone()
 
 
-async def get_delivers_list() -> list:
-    return cursor.execute('SELECT * FROM delivery').fetchall()
+async def get_available_delivers_list() -> list:
+    return cursor.execute('SELECT * FROM delivery WHERE available = TRUE').fetchall()
 
 
-async def get_delivers_from_product_id(prod_id: int) -> list:
-    return cursor.execute('SELECT * FROM delivery WHERE productId = ?', (prod_id,)).fetchall()
+async def get_id_available_deliver(prod_id: int) -> int:
+    del_id: int = cursor.execute(f'SELECT id FROM delivery WHERE productId = (?) AND available = TRUE',
+                                 (prod_id,)).fetchone()[0]
+    if del_id is None:
+        raise Exception("Not exist available delivery for this product id")
+
+    return del_id
 
 
-async def delete_delivery(del_id: int):
-    cursor.execute('DELETE FROM delivery WHERE id = ?', (del_id,))
+async def get_delivers_from_product_id(prod_id: int) -> tuple:
+    return cursor.execute('SELECT * FROM delivery WHERE productId = ?', (prod_id,)).fetchall()[0]
+
+
+async def change_available_status_delivery(del_id: int):
+    cursor.execute('UPDATE delivery SET available = FALSE WHERE id = ?', (del_id,))
     database.commit()
+
+
+# ------------------ #
+# Operation on Sales #
+# ------------------ #
+
+
+async def register_new_sale(buyer_id: int, del_id: int, paid: int):
+    cursor.execute('INSERT INTO sale (buyerId, deliveryId, dateSales, paid) VALUES (?, ?, ?, ?)',
+                   (buyer_id, del_id, str(datetime.now().strftime("%m/%d/%Y, %H:%M:%S")), paid,))
+    database.commit()
+
+
+async def get_sale_from_client_id():
+    pass
