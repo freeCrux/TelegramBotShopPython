@@ -152,9 +152,13 @@ async def change_client_balance(client_id: int, cash: int):
     """
     :param cash: Can be positive if client deposit cash and negative if he buys something
     """
-    balance: int = cursor.execute(f'SELECT balance FROM client WHERE id = ?', (client_id,)).fetchone()[0]
+    data: tuple = cursor.execute(f'SELECT balance, paid, salesCount  FROM client WHERE id = ?', (client_id,)).fetchone()
+    balance: int = data[0]
+    paid: int = data[1] + abs(cash) if cash < 0 else data[1]
+    sales_count: int = data[5] + 1 if cash < 0 else data[5]
     if cash > 0 or balance + cash >= 0:
-        cursor.execute('UPDATE client SET (balance) = (?) WHERE id = ?', (balance + cash, client_id,))
+        cursor.execute('UPDATE client SET (balance, paid, salesCount) = (?, ?, ?) WHERE id = ?',
+                       (balance + cash, paid, sales_count, client_id,))
         database.commit()
     else:
         raise ValueIsNoneException("Not enough money to pay")
@@ -186,7 +190,11 @@ async def delete_delivery(del_id: int):
 
 
 async def get_delivery_info_from_id(del_id: int) -> tuple:
-    return cursor.execute('SELECT * FROM delivery WHERE id = ?', (del_id,)).fetchone()
+    data: tuple = cursor.execute('SELECT * FROM delivery WHERE id = ?', (del_id,)).fetchone()
+    if data is None:
+        raise ValueIsNoneException("Delivery not found")
+
+    return data
 
 
 async def get_available_delivers_list() -> list:
@@ -222,5 +230,17 @@ async def register_new_sale(buyer_id: int, del_id: int, paid: int):
     database.commit()
 
 
-async def get_sale_from_client_id():
-    pass
+async def get_sales_from_client_id(client_id: int) -> list:
+    """
+    :return: Last 10 sales of client
+    """
+    sales: list = cursor.execute('SELECT * FROM sale WHERE buyerId = ? ORDER BY id DESC LIMIT 10',
+                                 (client_id,)).fetchall()
+    return sales
+
+
+async def get_sale_from_id(sale_id: int) -> tuple:
+    data: tuple = cursor.execute('SELECT * FROM sale WHERE id = ?', (sale_id,)).fetchone()
+    if data is None:
+        raise ValueIsNoneException("Sale not found.")
+    return data

@@ -16,3 +16,12 @@ async def get_products_list_inl_kb(products: list) -> InlineKeyboardMarkup:
         inl_kb.add(InlineKeyboardButton(text=f"{pr[1]} - {pr[2]}$", callback_data=f"prod_id:{pr[4]}"))
 
     return inl_kb
+
+
+async def get_sales_list_inl_kb(sales: list) -> InlineKeyboardMarkup:
+    inl_kb = InlineKeyboardMarkup(row_width=1)
+    for sl in sales:
+        # <sl[3] - date of sale>, <sl[0] - ID of sale>, <sl[2] - delivery id that refer to sale>
+        inl_kb.add(InlineKeyboardButton(text=f"Date: {sl[3]} | ID: {sl[0]}", callback_data=f"delivery_id:{sl[2]}"))
+
+    return inl_kb

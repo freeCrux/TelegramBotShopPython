@@ -36,7 +36,7 @@ async def get_delivers_list_inl_kb(delivers: list) -> InlineKeyboardMarkup:
         # <d[0] - ID of the product that is attached to the delivery>,
         # <d[2] - date of adding>, <d[4] - id of delivery>
         inl_kb.add(InlineKeyboardButton(text=f"Product ID: {d[0]} | Date of Adding {d[4]}",
-                                             callback_data=f"delivery_id:{d[5]}"), )
+                                             callback_data=f"delivery_id_root:{d[5]}"), )
 
     return inl_kb
 
@@ -47,3 +47,12 @@ async def get_delivery_editor_menu_inline_kd(del_id: int) -> InlineKeyboardMarku
     menu_inline_kd.add(delete_button)
 
     return menu_inline_kd
+
+
+async def get_sales_list_inl_kb_root(sales: list) -> InlineKeyboardMarkup:
+    inl_kb = InlineKeyboardMarkup(row_width=1)
+    for sl in sales:
+        # <sl[3] - date of sale>, <sl[0] - ID of sale>, <sl[2] - delivery id that refer to sale>
+        inl_kb.add(InlineKeyboardButton(text=f"Date: {sl[3]} | ID: {sl[0]}", callback_data=f"sale_id:{sl[2]}"))
+
+    return inl_kb

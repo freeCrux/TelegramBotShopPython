@@ -8,12 +8,10 @@ from config import admin_login, admin_password, admins_id_list
 from bot_init import bot, dp
 
 # <Buttons>
-from keyboards.admin_keyboard import (
-    admin_menu_kb,
-    add_product_kd,
-)
+from keyboards.admin_keyboard import admin_menu_kb
 from keyboards.admin_inline_buttons import *
 from keyboards.client_keyboard import client_menu_kb
+from keyboards.client_inline_buttons import get_sales_list_inl_kb
 
 from database import sql_db
 
@@ -45,6 +43,10 @@ class DeliveryStatesGroup(StatesGroup):
     photo = State()
     address = State()
     description = State()
+
+
+class ClientStatesGroup(StatesGroup):
+    client_id = State()
 
 
 async def cancel_handler(callback: types.CallbackQuery, state: FSMContext):
@@ -298,8 +300,8 @@ async def show_delivery(callback: types.CallbackQuery):
     product_id_for_delivery: int = delivery_data[0]
     product_name: str = await sql_db.get_product_name(prod_id=product_id_for_delivery)
     await bot.send_photo(callback.message.chat.id, delivery_data[1],
-                         f"Наименование продукта к которому относится: {product_name} | ID доствки: {delivery_id}"
-                         f"\nАдресс: {delivery_data[2]} | Время добавления: {delivery_data[4]}\n"
+                         f"Лот: {product_name}\nID доствки: {delivery_id}"
+                         f"\nАдресс: {delivery_data[2]}\nВремя добавления: {delivery_data[4]}\n"
                          f"Описание: {delivery_data[3]}",
                          reply_markup=await get_delivery_editor_menu_inline_kd(del_id=delivery_id))
     await callback.answer("Просмотр доставки")
@@ -313,6 +315,112 @@ async def delete_delivery(callback: types.CallbackQuery):
                                   reply_markup=await get_delivers_list_inl_kb(
                                       delivers=delivers))
     await callback.answer("Дело сделано")
+
+
+# ------ #
+# Client #
+# ------ #
+
+
+async def request_client_info(message: types.Message):
+    await bot.send_message(message.from_user.id, "Пришлите ID пользователя. Если передумал нажми отмена!",
+                           reply_markup=cancel_input_inline_kd)
+    await ClientStatesGroup.client_id.set()
+
+
+async def show_client_info(message: types.Message, state: FSMContext):
+    client_id = int(message.text)
+    client_data: tuple = await sql_db.get_client_data(client_id=client_id)
+    if client_data is not None:
+        sales = await sql_db.get_sales_from_client_id(client_id=client_id)
+        await bot.send_message(message.from_user.id, f"ID: {client_data[0]} | "
+                                                     f"Баланс: {client_data[1]}$\n"
+                                                     f"Дата последнего депозита: {client_data[2]} | "
+                                                     f"Последний депозит: {client_data[3]}$\n"
+                                                     f"Общее кол-во сделок: {client_data[5]} | "
+                                                     f"Потратил: {client_data[4]}$\n\n"
+                                                     f"Последние заказы:",
+                               reply_markup=await get_sales_list_inl_kb_root(sales=sales))
+    else:
+        await bot.send_message(message.from_user.id, "Данный пользователь не найден.")
+    await bot.send_message(message.from_user.id, "Можете подробнее узнать о сделках с клиентом",
+                           reply_markup=admin_menu_kb)
+    await state.finish()
+
+
+async def show_sale_full_info(callback: types.CallbackQuery):
+    sale_id = int(callback.data.split(':')[1])
+    sale_data: tuple = await sql_db.get_sale_from_id(sale_id=sale_id)
+
+    delivery_id: int = sale_data[2]
+    delivery_data: tuple = await sql_db.get_delivery_info_from_id(del_id=delivery_id)
+
+    product_id: int = delivery_data[0]
+    product_name: str = await sql_db.get_product_name(prod_id=product_id)
+    await callback.message.answer(f"Данные о сделке:\nID: {sale_id}\nДата совершения: {sale_data[3]}\n"
+                                  f"Заплачено: {sale_data[4]}$\n"
+                                  f"ID клиента: {sale_data[1]}",
+                                  reply_markup=ReplyKeyboardRemove())
+    await bot.send_photo(callback.message.chat.id, delivery_data[1],
+                         f"Лот: {product_name} | ID доствки: {delivery_id}"
+                         f"\nАдресс: {delivery_data[2]}\nВремя добавления: {delivery_data[4]}\n"
+                         f"Описание: {delivery_data[3]}",
+                         reply_markup=admin_menu_kb)
+    await callback.answer()
+
+
+def processing_of_product(dp: Dispatcher):
+    dp.register_message_handler(show_all_products, lambda message: verify(message.from_user.id),
+                                commands=["show_product"], state=None)
+
+    dp.register_callback_query_handler(redactor_of_product, lambda message: verify(message.from_user.id),
+                                       Text(startswith="prod_id_for_redactor:", ignore_case=True), state=None)
+    dp.register_callback_query_handler(edit_product, lambda message: verify(message.from_user.id),
+                                       Text(startswith="id_product_to_change:", ignore_case=True))
+    dp.register_callback_query_handler(delete_product, lambda message: verify(message.from_user.id),
+                                       Text(startswith="id_product_to_delete:", ignore_case=True))
+    # <Add photo>
+    dp.register_message_handler(add_product, lambda message: verify(message.from_user.id),
+                                commands=["add_product"], state=None)
+    dp.register_message_handler(set_photo_new_prod, content_types=["photo"], state=ProductStatesGroup.photo)
+    # <Set name>
+    dp.register_message_handler(processing_too_long_message,
+                                lambda message: len(message.text) > NAME_LIMIT_SIZE, state=ProductStatesGroup.price)
+    dp.register_message_handler(set_name_new_prod, state=ProductStatesGroup.name)
+    # <Set price>
+    dp.register_message_handler(processing_invalid_price,
+                                lambda message: not message.text.isdigit() and int(message.text) <= 9999,
+                                state=ProductStatesGroup.price)
+    dp.register_message_handler(set_price_new_prod, lambda message: message.text.isdigit(),
+                                state=ProductStatesGroup.price)
+    # <Set description>
+    dp.register_message_handler(processing_too_long_message,
+                                lambda message: len(message.text) > DESCRIPTION_LIMIT_SIZE,
+                                state=ProductStatesGroup.description)
+    dp.register_message_handler(set_description_new_prod, state=ProductStatesGroup.description)
+
+
+def processing_of_delivery(dp: Dispatcher):
+    dp.register_message_handler(show_list_of_delivers, lambda message: verify(message.from_user.id),
+                                commands=["show_delivery"])
+    dp.register_callback_query_handler(show_delivery, lambda message: verify(message.from_user.id),
+                                       Text(startswith="delivery_id_root:", ignore_case=True))
+    dp.register_callback_query_handler(delete_delivery, lambda message: verify(message.from_user.id),
+                                       Text(startswith="id_delivery_to_delete:", ignore_case=True))
+
+    dp.register_message_handler(add_delivery, lambda message: verify(message.from_user.id),
+                                commands=["add_delivery"], state=None)
+    dp.register_callback_query_handler(select_product_id_new_delivery, lambda message: verify(message.from_user.id),
+                                       Text(startswith="prod_id_for_delivery:", ignore_case=True),
+                                       state=DeliveryStatesGroup.prod_id)
+    dp.register_message_handler(set_photo_new_delivery, content_types=["photo"], state=DeliveryStatesGroup.photo)
+    dp.register_message_handler(processing_too_long_message,
+                                lambda message: len(message.text) > NAME_LIMIT_SIZE, state=DeliveryStatesGroup.address)
+    dp.register_message_handler(set_address_new_delivery, state=DeliveryStatesGroup.address)
+    dp.register_message_handler(processing_too_long_message,
+                                lambda message: len(message.text) > DESCRIPTION_LIMIT_SIZE,
+                                state=DeliveryStatesGroup.description)
+    dp.register_message_handler(set_description_new_delivery, state=DeliveryStatesGroup.description)
 
 
 def register_admin_handlers(dp: Dispatcher):
@@ -332,53 +440,14 @@ def register_admin_handlers(dp: Dispatcher):
     dp.register_message_handler(logout, lambda message: verify(message.from_user.id), commands=["logout"])
 
     # <Show all products, add new product and edit is existing product>
-    dp.register_message_handler(show_all_products, lambda message: verify(message.from_user.id),
-                                commands=["show_product"], state=None)
-
-    dp.register_callback_query_handler(redactor_of_product, lambda message: verify(message.from_user.id),
-                                       Text(startswith="prod_id_for_redactor:", ignore_case=True), state=None)
-    dp.register_callback_query_handler(edit_product, lambda message: verify(message.from_user.id),
-                                       Text(startswith="id_product_to_change:", ignore_case=True))
-    dp.register_callback_query_handler(delete_product, lambda message: verify(message.from_user.id),
-                                       Text(startswith="id_product_to_delete:", ignore_case=True))
-    # <Add photo>
-    dp.register_message_handler(add_product, lambda message: verify(message.from_user.id),
-                                commands=["add_product"], state=None)
-    dp.register_message_handler(set_photo_new_prod, content_types=["photo"], state=ProductStatesGroup.photo)
-    # <Set name>
-    dp.register_message_handler(processing_too_long_message,
-                                lambda message: len(message.text) <= NAME_LIMIT_SIZE, state=ProductStatesGroup.price)
-    dp.register_message_handler(set_name_new_prod, state=ProductStatesGroup.name)
-    # <Set price>
-    dp.register_message_handler(processing_invalid_price,
-                                lambda message: not message.text.isdigit() and int(message.text) <= 9999,
-                                state=ProductStatesGroup.price)
-    dp.register_message_handler(set_price_new_prod, lambda message: message.text.isdigit(),
-                                state=ProductStatesGroup.price)
-    # <Set description>
-    dp.register_message_handler(processing_too_long_message,
-                                lambda message: len(message.text) > DESCRIPTION_LIMIT_SIZE,
-                                state=ProductStatesGroup.description)
-    dp.register_message_handler(set_description_new_prod, state=ProductStatesGroup.description)
+    processing_of_product(dp=dp)
 
     # <Show all delivery, add new delivery and delete existing delivery>
-    dp.register_message_handler(show_list_of_delivers, lambda message: verify(message.from_user.id),
-                                commands=["show_delivery"])
-    dp.register_callback_query_handler(show_delivery, lambda message: verify(message.from_user.id),
-                                       Text(startswith="delivery_id:", ignore_case=True))
-    dp.register_callback_query_handler(delete_delivery, lambda message: verify(message.from_user.id),
-                                       Text(startswith="id_delivery_to_delete:", ignore_case=True))
+    processing_of_delivery(dp=dp)
 
-    dp.register_message_handler(add_delivery, lambda message: verify(message.from_user.id),
-                                commands=["add_delivery"], state=None)
-    dp.register_callback_query_handler(select_product_id_new_delivery, lambda message: verify(message.from_user.id),
-                                       Text(startswith="prod_id_for_delivery:", ignore_case=True),
-                                       state=DeliveryStatesGroup.prod_id)
-    dp.register_message_handler(set_photo_new_delivery, content_types=["photo"], state=DeliveryStatesGroup.photo)
-    dp.register_message_handler(processing_too_long_message,
-                                lambda message: len(message.text) <= NAME_LIMIT_SIZE, state=DeliveryStatesGroup.address)
-    dp.register_message_handler(set_address_new_delivery, state=DeliveryStatesGroup.address)
-    dp.register_message_handler(processing_too_long_message,
-                                lambda message: len(message.text) > DESCRIPTION_LIMIT_SIZE,
-                                state=DeliveryStatesGroup.description)
-    dp.register_message_handler(set_description_new_delivery, state=DeliveryStatesGroup.description)
+    # <Show client info>
+    dp.register_message_handler(request_client_info, lambda message: verify(message.from_user.id),
+                                commands=["client_info"], state=None)
+    dp.register_message_handler(show_client_info, state=ClientStatesGroup.client_id)
+    dp.register_callback_query_handler(show_sale_full_info, lambda message: verify(message.from_user.id),
+                                       Text(startswith="sale_id:", ignore_case=True))

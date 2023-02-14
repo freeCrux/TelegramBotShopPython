@@ -43,6 +43,15 @@ async def show_product(callback: types.CallbackQuery):
                          reply_markup=await get_buy_inl_kb(prod_id=product_id))
 
 
+async def show_delivery(client_id: int, delivery_data: tuple):
+    product_id: int = delivery_data[0]
+    product_name: str = await sql_db.get_product_name(prod_id=product_id)
+    await bot.send_photo(client_id, delivery_data[1],
+                         f"Лот: {product_name} | Адресс: {delivery_data[2]}\n"
+                         f"Описание: {delivery_data[3]}",
+                         reply_markup=client_menu_kb)
+
+
 async def buy_product(callback: types.CallbackQuery):
     product_id = int(callback.data.split(':')[1])
     product_price: int = await sql_db.get_product_price(prod_id=product_id)
@@ -57,11 +66,7 @@ async def buy_product(callback: types.CallbackQuery):
             await sql_db.register_new_sale(buyer_id=callback.message.chat.id, del_id=delivery_id, paid=product_price)
             await sql_db.change_available_status_delivery(del_id=delivery_id)
             delivery_data: tuple = await sql_db.get_delivers_from_product_id(prod_id=product_id)
-            product_name: str = await sql_db.get_product_name(prod_id=product_id)
-            await bot.send_photo(callback.message.chat.id, delivery_data[1],
-                                 f"Лот: {product_name} | Адресс: {delivery_data[2]}\n"
-                                 f"Описание: {delivery_data[3]}",
-                                 reply_markup=client_menu_kb)
+            await show_delivery(client_id=callback.message.chat.id, delivery_data=delivery_data)
             await callback.answer("Поздравляю с покупкой")
         except ValueIsNoneException:
             await callback.message.answer("Упс, техническая неполадка. Покупка не состоялась.")
@@ -81,8 +86,21 @@ async def deposit_money(message: types.Message):
     await bot.send_message(message.from_user.id, "deposit", reply_markup=client_menu_kb)
 
 
-async def show_my_last_bye(message: types.Message):
-    await bot.send_message(message.from_user.id, "myLastBuy", reply_markup=client_menu_kb)
+async def show_sales(message: types.Message):
+    sales: list = await sql_db.get_sales_from_client_id(client_id=message.from_user.id)
+    if len(sales) > 0:
+        await bot.send_message(message.from_user.id, "Твои последние покупки:",
+                               reply_markup=await get_sales_list_inl_kb(sales=sales))
+    else:
+        await bot.send_message(message.from_user.id, "Вы не совершали покупок!",
+                               reply_markup=client_menu_kb)
+
+
+async def show_sale_from_delivery_id(callback: types.CallbackQuery):
+    del_id: int = int(callback.data.split(':')[1])
+    delivery_data: tuple = await sql_db.get_delivery_info_from_id(del_id=del_id)
+    await show_delivery(client_id=callback.message.chat.id, delivery_data=delivery_data)
+    await callback.answer()
 
 
 def register_client_handlers(dp: Dispatcher):
@@ -104,6 +122,7 @@ def register_client_handlers(dp: Dispatcher):
     dp.register_message_handler(deposit_money, commands=["paid"])
     dp.register_message_handler(deposit_money, Text(equals="Пополнить баланс", ignore_case=True))
 
-    # <Show products in stock>
-    dp.register_message_handler(show_my_last_bye, commands=["myBuy"])
-    dp.register_message_handler(show_my_last_bye, Text(equals="Мои покупки", ignore_case=True))
+    # <Show sales>
+    dp.register_message_handler(show_sales, commands=["myBuy"])
+    dp.register_message_handler(show_sales, Text(equals="Мои покупки", ignore_case=True))
+    dp.register_callback_query_handler(show_sale_from_delivery_id, Text(startswith="delivery_id:", ignore_case=True))
