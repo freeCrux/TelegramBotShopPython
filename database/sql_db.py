@@ -8,6 +8,7 @@ from bot_init import bot
 from datetime import datetime
 
 from Utils import ValueIsNoneException
+from Utils.wallet import update_currency_rate_satoshi, get_wallet_balance
 
 
 def sql_connect():
@@ -45,6 +46,14 @@ def sql_connect():
                    'deliveryId INTEGER,'
                    'dateSales TEXT,'
                    'paid INTEGER)')
+
+    cursor.execute('CREATE TABLE IF NOT EXISTS wallet( '
+                   'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+                   'address TEXT,'
+                   'balance TEXT,'
+                   'lockUntil TEXT DEFAULT "free",'
+                   'network TEXT,'
+                   'available BOOLEAN DEFAULT TRUE)')
 
     database.commit()
 
@@ -244,3 +253,31 @@ async def get_sale_from_id(sale_id: int) -> tuple:
     if data is None:
         raise ValueIsNoneException("Sale not found.")
     return data
+
+
+# ------------------- #
+# Operation on wallet #
+# ------------------- #
+
+async def add_new_wallet_address(address: str):
+    wallet_address = cursor.execute(f'SELECT address FROM wallet WHERE address = ?', (address,)).fetchone()
+    if wallet_address is None:
+        address_balance: int = await get_wallet_balance(address=address)
+        # if wallet_balance == -1 then address not found
+        if address_balance != -1:
+            cursor.execute('INSERT INTO wallet (address, balance, network) VALUES (?, ?, ?)',
+                           (address, address_balance, "BTC",))
+            database.commit()
+
+
+async def get_wallet_addresses_list() -> list:
+    return cursor.execute('SELECT * FROM wallet').fetchall()
+
+
+async def get_wallet_address_data(address_id: int):
+    return cursor.execute('SELECT * FROM wallet WHERE id = ?', (address_id,)).fetchall()
+
+
+async def delete_wallet_address(address_id: str):
+    cursor.execute('DELETE FROM wallet WHERE id = ?', (address_id,))
+    database.commit()
