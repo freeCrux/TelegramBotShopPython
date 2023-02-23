@@ -51,9 +51,9 @@ def sql_connect():
                    'id INTEGER PRIMARY KEY AUTOINCREMENT,'
                    'address TEXT,'
                    'balance TEXT,'
-                   'lockUntil TEXT DEFAULT "free",'
+                   'usedUntil TEXT DEFAULT "free",'
                    'network TEXT,'
-                   'available BOOLEAN DEFAULT TRUE)')
+                   'frozen BOOLEAN DEFAULT FALSE)')
 
     database.commit()
 
@@ -274,10 +274,21 @@ async def get_wallet_addresses_list() -> list:
     return cursor.execute('SELECT * FROM wallet').fetchall()
 
 
-async def get_wallet_address_data(address_id: int):
-    return cursor.execute('SELECT * FROM wallet WHERE id = ?', (address_id,)).fetchall()
+async def get_wallet_address_data(address_id: int) -> tuple:
+    return cursor.execute('SELECT * FROM wallet WHERE id = ?', (address_id,)).fetchone()
 
 
-async def delete_wallet_address(address_id: str):
+async def delete_wallet_address(address_id: int):
     cursor.execute('DELETE FROM wallet WHERE id = ?', (address_id,))
     database.commit()
+
+
+async def change_wallet_address_frozen_status(address_id: int):
+    """
+    Inverts frozen status of wallet address, True -> False and False -> True.
+    """
+    frozen_status = cursor.execute('SELECT lock FROM wallet WHERE id = ?', (address_id,)).fetchone()[0]
+    if frozen_status is not None:
+        frozen_status = True if frozen_status is False else False
+        cursor.execute('UPDATE wallet SET (frozen) = (?) WHERE id = ?', (frozen_status, address_id,))
+        database.commit()

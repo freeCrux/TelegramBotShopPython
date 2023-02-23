@@ -49,6 +49,10 @@ class ClientStatesGroup(StatesGroup):
     client_id = State()
 
 
+class WalletAddressGroup(StatesGroup):
+    address = State()
+
+
 async def cancel_handler(callback: types.CallbackQuery, state: FSMContext):
     current_state = await state.get_state()
     if current_state is None:
@@ -116,6 +120,7 @@ async def add_product(message: types.Message, state: FSMContext):
                            reply_markup=cancel_input_inline_kd)
     await ProductStatesGroup.photo.set()
     async with state.proxy() as data:
+        # -1 if prod is not exist
         data["product_id"] = -1
     await bot.send_message(message.from_user.id, "Пришлите одно фото для нового товара",
                            reply_markup=ReplyKeyboardRemove())
@@ -182,7 +187,7 @@ async def show_all_products(message: types.Message):
     all_products = await sql_db.get_all_product_list()
     if len(all_products) > 0:
         await bot.send_message(message.from_user.id, "Список всех товаров",
-                               reply_markup=await get_products_list_inl_kb(
+                               reply_markup=await get_products_list_inl_kb_root(
                                    products=all_products, mode="prod_id_for_redactor"))
         await bot.send_message(message.from_user.id, "Вы можете отредактировать товары",
                                reply_markup=admin_menu_kb)
@@ -199,7 +204,7 @@ async def redactor_of_product(callback: types.CallbackQuery):
                          f"Название: {prod_data[1]} | ID: {product_id} | Цена: {prod_data[2]}$\n"
                          f"Кол-во доступных доставок: {await sql_db.counter_deliveries_by_product(prod_id=product_id)}"
                          f"\nОписание: {prod_data[3]}",
-                         reply_markup=await get_product_editor_menu_inline_kd(prod_id=product_id))
+                         reply_markup=await get_product_editor_menu_inline_kd_root(prod_id=product_id))
     await callback.answer("Можете редактировать товар")
 
 
@@ -226,7 +231,7 @@ async def delete_product(callback: types.CallbackQuery):
     await sql_db.delete_product(prod_id=product_id)
     products = await sql_db.get_all_product_list()
     await callback.message.answer("Товар успешно удален",
-                                  reply_markup=await get_products_list_inl_kb(
+                                  reply_markup=await get_products_list_inl_kb_root(
                                       products=products, mode="prod_id_for_redactor"))
     await callback.answer("Продукт удален")
 
@@ -242,7 +247,8 @@ async def add_delivery(message: types.Message):
                            reply_markup=cancel_input_inline_kd)
     products = await sql_db.get_all_product_list()
     await bot.send_message(message.from_user.id, "Выберите лот который вы доставили",
-                           reply_markup=await get_products_list_inl_kb(products=products, mode="prod_id_for_delivery"))
+                           reply_markup=await get_products_list_inl_kb_root(products=products,
+                                                                            mode="prod_id_for_delivery"))
     await DeliveryStatesGroup.prod_id.set()
 
 
@@ -283,7 +289,7 @@ async def show_list_of_delivers(message: types.Message):
     all_delivers = await sql_db.get_available_delivers_list()
     if len(all_delivers) > 0:
         await bot.send_message(message.from_user.id, "Список доставок",
-                               reply_markup=await get_delivers_list_inl_kb(all_delivers))
+                               reply_markup=await get_delivers_list_inl_kb_root(all_delivers))
         await bot.send_message(message.from_user.id, "Можете полюбоваться проделанной работой!\n"
                                                      "Мы тут все серьезнае люди так что изменить доставку низя, "
                                                      "можешь только удалить.",
@@ -303,7 +309,7 @@ async def show_delivery(callback: types.CallbackQuery):
                          f"Лот: {product_name}\nID доствки: {delivery_id}"
                          f"\nАдресс: {delivery_data[2]}\nВремя добавления: {delivery_data[4]}\n"
                          f"Описание: {delivery_data[3]}",
-                         reply_markup=await get_delivery_editor_menu_inline_kd(del_id=delivery_id))
+                         reply_markup=await get_delivery_editor_menu_inline_kd_root(del_id=delivery_id))
     await callback.answer("Просмотр доставки")
 
 
@@ -312,7 +318,7 @@ async def delete_delivery(callback: types.CallbackQuery):
     await sql_db.delete_delivery(del_id=delivery_id)
     delivers = await sql_db.get_available_delivers_list()
     await callback.message.answer("Доствка успешна удалена",
-                                  reply_markup=await get_delivers_list_inl_kb(
+                                  reply_markup=await get_delivers_list_inl_kb_root(
                                       delivers=delivers))
     await callback.answer("Дело сделано")
 
@@ -367,6 +373,71 @@ async def show_sale_full_info(callback: types.CallbackQuery):
                          f"Описание: {delivery_data[3]}",
                          reply_markup=admin_menu_kb)
     await callback.answer()
+
+
+# ------ #
+# Wallet #
+# ------ #
+
+
+async def add_wallet_address(message: types.Message):
+    await bot.send_message(message.from_user.id,
+                           "Вы в режиме добавляения нового адреса для отмены нажмите кнопку ниже",
+                           reply_markup=cancel_input_inline_kd)
+    await WalletAddressGroup.address.set()
+    await bot.send_message(message.from_user.id, "Пришлите адрес кошелька, все его данные подтянутся автоматически.",
+                           reply_markup=ReplyKeyboardRemove())
+
+
+async def set_address_for_new_wallet_address(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data["address"] = message.text
+        await bot.send_message(message.from_user.id, f"Описание адреса",
+                               reply_markup=admin_menu_kb)
+    await state.finish()
+
+
+async def show_list_of_wallet_address(message: types.Message):
+    addresses = await sql_db.get_wallet_addresses_list()
+    if len(addresses) > 0:
+        await bot.send_message(message.from_user.id, "Список доставок",
+                               reply_markup=await get_wallet_address_list_inl_kb_root(addresses=addresses))
+        await bot.send_message(message.from_user.id, "Для вывода средств с адреса ДОЛЖНЫ его заморозить если он занят"
+                                                     "заморозьте его и подождите пока он станет свободный "
+                                                     "(на него придет транзакция от покупателя), "
+                                                     "для удаления адреса производите ту же операцию.",
+                               reply_markup=admin_menu_kb)
+    else:
+        await bot.send_message(message.from_user.id, "Нет ни одного адреса, но вы можете загяться делом ;)"
+                                                     "/add_wallet_address",
+                               reply_markup=admin_menu_kb)
+
+
+async def edit_menu_of_address(callback: types.CallbackQuery):
+    address_id = int(callback.data.split(':')[1])
+    address: tuple = await sql_db.get_wallet_address_data(address_id=address_id)
+    await callback.message.answer(f"АДРЕС: {address[1]}\nИД: {address_id} | Баланс: {address[2]} | Сеть: {address[4]}\n"
+                                  f"Используеться до: {address[3]} | Заморожен: {address[5]}",
+                                  reply_markup=await get_wallet_address_editor_menu_inline_kd_root(
+                                      address_id=address_id))
+    await callback.answer()
+
+
+async def delete_wallet_address(callback: types.CallbackQuery, message: types.Message):
+    address_id = int(callback.data.split(':')[1])
+    await sql_db.delete_wallet_address(address_id=address_id)
+    await callback.answer()
+    await show_list_of_wallet_address(message=message)
+
+
+async def block_or_unblock_wallet_address(callback: types.CallbackQuery, message: types.Message):
+    """
+    If wallet address is blocked then the address don`t use for payments, this is use for withdrawal of money.
+    """
+    address_id = int(callback.data.split(':')[1])
+    await sql_db.change_wallet_address_frozen_status(address_id=address_id)
+    await callback.answer()
+    await show_list_of_wallet_address(message=message)
 
 
 def processing_of_product(dp: Dispatcher):
