@@ -259,14 +259,14 @@ async def get_sale_from_id(sale_id: int) -> tuple:
 # Operation on wallet #
 # ------------------- #
 
-async def add_new_wallet_address(address: str):
+async def add_new_wallet_address(address: str, network: str):
     wallet_address = cursor.execute(f'SELECT address FROM wallet WHERE address = ?', (address,)).fetchone()
     if wallet_address is None:
         address_balance: int = await get_wallet_balance(address=address)
         # if wallet_balance == -1 then address not found
         if address_balance != -1:
             cursor.execute('INSERT INTO wallet (address, balance, network) VALUES (?, ?, ?)',
-                           (address, address_balance, "BTC",))
+                           (address, address_balance, network,))
             database.commit()
 
 

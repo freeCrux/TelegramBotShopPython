@@ -4,7 +4,10 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.types import ReplyKeyboardRemove, CallbackQuery
 
-from config import admin_login, admin_password, admins_id_list
+from config import (available_network,
+                    admin_login,
+                    admin_password,
+                    admins_id_list)
 from bot_init import bot, dp
 
 # <Buttons>
@@ -51,6 +54,7 @@ class ClientStatesGroup(StatesGroup):
 
 class WalletAddressGroup(StatesGroup):
     address = State()
+    network = State()
 
 
 async def cancel_handler(callback: types.CallbackQuery, state: FSMContext):
@@ -392,7 +396,21 @@ async def add_wallet_address(message: types.Message):
 async def set_address_for_new_wallet_address(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["address"] = message.text
-        await bot.send_message(message.from_user.id, f"Описание адреса",
+        await bot.send_message(message.from_user.id, f"Укажите сеть например: BTC",
+                               reply_markup=admin_menu_kb)
+    await WalletAddressGroup.next()
+
+
+async def processing_invalid_address_network(message: types.Message):
+    return await message.reply(f"Бро такие сети мы не знаем! Вот те с которыми работаем {available_network}")
+
+
+async def set_network_for_new_wallet_address(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data["network"] = message.text
+        await sql_db.add_new_wallet_address(address=data["address"], network=data["network"])
+        await bot.send_message(message.from_user.id,
+                               f"\t\tУспешно добавлен!\n\nСеть: {data['network']} Адрес {data['address']}",
                                reply_markup=admin_menu_kb)
     await state.finish()
 
@@ -440,7 +458,19 @@ async def block_or_unblock_wallet_address(callback: types.CallbackQuery, message
     await show_list_of_wallet_address(message=message)
 
 
-def processing_of_product(dp: Dispatcher):
+def register_admin_action(dp: Dispatcher):
+    # <Show admin menu>
+    dp.register_message_handler(cmd_menu, lambda message: verify(message.from_user.id), commands=["admin"])
+    # <Register user as admin>
+    dp.register_message_handler(register, lambda message: not verify(message.from_user.id),
+                                commands=["admin"], state=None)
+    dp.register_message_handler(get_login, state=AuthorizationStatesGroup.login)
+    dp.register_message_handler(get_password, state=AuthorizationStatesGroup.password)
+    # <Logout admin and show user menu>
+    dp.register_message_handler(logout, lambda message: verify(message.from_user.id), commands=["logout"])
+
+
+def register_action_for_product(dp: Dispatcher):
     dp.register_message_handler(show_all_products, lambda message: verify(message.from_user.id),
                                 commands=["show_product"], state=None)
 
@@ -471,7 +501,7 @@ def processing_of_product(dp: Dispatcher):
     dp.register_message_handler(set_description_new_prod, state=ProductStatesGroup.description)
 
 
-def processing_of_delivery(dp: Dispatcher):
+def register_action_for_delivery(dp: Dispatcher):
     dp.register_message_handler(show_list_of_delivers, lambda message: verify(message.from_user.id),
                                 commands=["show_delivery"])
     dp.register_callback_query_handler(show_delivery, lambda message: verify(message.from_user.id),
@@ -494,31 +524,48 @@ def processing_of_delivery(dp: Dispatcher):
     dp.register_message_handler(set_description_new_delivery, state=DeliveryStatesGroup.description)
 
 
-def register_admin_handlers(dp: Dispatcher):
-    # <Cancel input when add new product or edit product>
-    dp.register_callback_query_handler(cancel_handler, text="cancel_input", state="*")
-
-    # <Show admin menu>
-    dp.register_message_handler(cmd_menu, lambda message: verify(message.from_user.id), commands=["admin"])
-
-    # <Register user as admin>
-    dp.register_message_handler(register, lambda message: not verify(message.from_user.id),
-                                commands=["admin"], state=None)
-    dp.register_message_handler(get_login, state=AuthorizationStatesGroup.login)
-    dp.register_message_handler(get_password, state=AuthorizationStatesGroup.password)
-
-    # <Logout admin and show user menu>
-    dp.register_message_handler(logout, lambda message: verify(message.from_user.id), commands=["logout"])
-
-    # <Show all products, add new product and edit is existing product>
-    processing_of_product(dp=dp)
-
-    # <Show all delivery, add new delivery and delete existing delivery>
-    processing_of_delivery(dp=dp)
-
-    # <Show client info>
+def register_action_for_client(dp: Dispatcher):
     dp.register_message_handler(request_client_info, lambda message: verify(message.from_user.id),
                                 commands=["client_info"], state=None)
     dp.register_message_handler(show_client_info, state=ClientStatesGroup.client_id)
     dp.register_callback_query_handler(show_sale_full_info, lambda message: verify(message.from_user.id),
                                        Text(startswith="sale_id:", ignore_case=True))
+
+
+def register_action_for_wallet_address(dp: Dispatcher):
+    dp.register_message_handler(add_wallet_address, lambda message: verify(message.from_user.id),
+                                commands=["add_address"], state=None)
+    dp.register_message_handler(set_address_for_new_wallet_address, state=WalletAddressGroup.address)
+    dp.register_message_handler(processing_invalid_address_network,
+                                lambda message: message.text not in available_network,
+                                state=WalletAddressGroup.network)
+    dp.register_message_handler(set_network_for_new_wallet_address, state=WalletAddressGroup.network)
+
+    dp.register_message_handler(show_list_of_wallet_address, lambda message: verify(message.from_user.id),
+                                commands=["show_addresses"])
+    dp.register_callback_query_handler(edit_menu_of_address, lambda message: verify(message.from_user.id),
+                                       Text(startswith="address_id:", ignore_case=True))
+    dp.register_callback_query_handler(delete_wallet_address, lambda message: verify(message.from_user.id),
+                                       Text(startswith="id_address_to_delete:", ignore_case=True))
+    dp.register_callback_query_handler(block_or_unblock_wallet_address, lambda message: verify(message.from_user.id),
+                                       Text(startswith="id_address_to_freeze:", ignore_case=True))
+
+
+def register_admin_handlers(dp: Dispatcher):
+    # <Cancel input when add new product or edit product>
+    dp.register_callback_query_handler(cancel_handler, text="cancel_input", state="*")
+    register_admin_action(dp=dp)
+    register_action_for_product(dp=dp)
+    register_action_for_delivery(dp=dp)
+    register_action_for_client(dp=dp)
+    register_action_for_wallet_address(dp=dp)
+
+
+# TODO For test
+# def ver(message: types.Message):
+#     def ver_wrapper(func):
+#         def wrapper(*args, **kwargs):
+#             if message.from_user.id in admins_id_list:
+#                 return func()
+#         return wrapper
+#     return ver_wrapper
