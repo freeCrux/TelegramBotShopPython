@@ -8,7 +8,7 @@ from bot_init import bot
 from datetime import datetime
 
 from Utils import ValueIsNoneException
-from Utils.wallet import update_currency_rate_satoshi, get_wallet_balance
+from Utils.wallet import update_currency_rate_satoshi, update_wallet_balance
 
 
 def sql_connect():
@@ -139,6 +139,7 @@ def add_client_if_not_exist(func):
         await add_client(client_id)
 
         return await func(client_id, *args, **kwargs)
+
     return wrapper
 
 
@@ -201,7 +202,7 @@ async def add_delivery(state: FSMContext):
     async with state.proxy() as data:
         cursor.execute(
             'INSERT INTO delivery (productId, photo, adress, description, dateOfAdding) VALUES (?, ?, ?, ?, ?)',
-            (*[val for val in data.values()], str(datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),)))
+            (*[val for val in data.values()], str(datetime.now().strftime("%m/%d/%Y, %H:%M:%S"), )))
         database.commit()
 
 
@@ -271,18 +272,15 @@ async def get_sale_from_id(sale_id: int) -> tuple:
 # Operation on wallet #
 # ------------------- #
 
-async def add_new_wallet_address(address: str, network: str):
+async def add_new_wallet_address(address: str, network: str, balance: int):
     wallet_address = cursor.execute(f'SELECT address FROM wallet WHERE address = ?', (address,)).fetchone()
     if wallet_address is None:
-        address_balance: int = await get_wallet_balance(address=address)
-        # if wallet_balance == -1 then address not found
-        if address_balance != -1:
-            cursor.execute('INSERT INTO wallet (address, balance, network) VALUES (?, ?, ?)',
-                           (address, address_balance, network,))
-            database.commit()
+        cursor.execute('INSERT INTO wallet (address, balance, network) VALUES (?, ?, ?)',
+                       (address, balance, network,))
+        database.commit()
 
 
-async def get_wallet_addresses_list() -> list:
+async def get_wallet_all_addresses_list() -> list:
     return cursor.execute('SELECT * FROM wallet').fetchall()
 
 
@@ -295,12 +293,13 @@ async def delete_wallet_address(address_id: int):
     database.commit()
 
 
-async def change_wallet_address_frozen_status(address_id: int):
+async def change_wallet_address_frozen_status(address_id: int, balance: int):
     """
     Inverts frozen status of wallet address, True -> False and False -> True.
     """
-    frozen_status = cursor.execute('SELECT lock FROM wallet WHERE id = ?', (address_id,)).fetchone()[0]
+    frozen_status: bool = cursor.execute('SELECT frozen FROM wallet WHERE id = ?', (address_id,)).fetchone()[0]
     if frozen_status is not None:
-        frozen_status = True if frozen_status is False else False
-        cursor.execute('UPDATE wallet SET (frozen) = (?) WHERE id = ?', (frozen_status, address_id,))
+        frozen_status = False if frozen_status else True
+        cursor.execute('UPDATE wallet SET (frozen, balance) = (?, ?) WHERE id = ?',
+                       (frozen_status, balance, address_id,))
         database.commit()

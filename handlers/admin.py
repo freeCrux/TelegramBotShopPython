@@ -4,6 +4,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.types import ReplyKeyboardRemove, CallbackQuery
 
+from Utils.wallet import update_wallet_balance
 from config import (available_network,
                     admin_login,
                     admin_password,
@@ -95,9 +96,9 @@ async def cmd_menu(message: types.Message):
     await bot.send_message(message.from_user.id, "Ты Админ можешь действовать.", reply_markup=admin_menu_kb)
 
 
-# ------------------------------------------- #
+# ----------------------------------- #
 # Logout and register a user as admin #
-# ------------------------------------------- #
+# ----------------------------------- #
 
 
 async def register(message: types.Message):
@@ -416,7 +417,7 @@ async def set_address_for_new_wallet_address(message: types.Message, state: FSMC
     async with state.proxy() as data:
         data["address"] = message.text
         await bot.send_message(message.from_user.id, f"Укажите сеть например: BTC",
-                               reply_markup=admin_menu_kb)
+                               reply_markup=ReplyKeyboardRemove())
     await WalletAddressGroup.next()
 
 
@@ -427,17 +428,24 @@ async def processing_invalid_address_network(message: types.Message):
 async def set_network_for_new_wallet_address(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["network"] = message.text
-        await sql_db.add_new_wallet_address(address=data["address"], network=data["network"])
-        await bot.send_message(message.from_user.id,
-                               f"\t\tУспешно добавлен!\n\nСеть: {data['network']} Адрес {data['address']}",
-                               reply_markup=admin_menu_kb)
+        address_balance: int = await update_wallet_balance(address=data["address"])
+        # if wallet_balance == -1 then address not found
+        if address_balance != -1:
+            await sql_db.add_new_wallet_address(address=data["address"],
+                                                network=data["network"], balance=address_balance)
+            await bot.send_message(message.from_user.id,
+                                   f"\t\tУспешно добавлен!\n\nСеть: {data['network']} Адрес {data['address']}",
+                                   reply_markup=admin_menu_kb)
+        else:
+            await bot.send_message(message.from_user.id, "Такой адрес не существует, попробуйте снова /add_address",
+                                   reply_markup=admin_menu_kb)
     await state.finish()
 
 
 async def show_list_of_wallet_address(message: types.Message):
-    addresses = await sql_db.get_wallet_addresses_list()
+    addresses = await sql_db.get_wallet_all_addresses_list()
     if len(addresses) > 0:
-        await bot.send_message(message.from_user.id, "Список доставок",
+        await bot.send_message(message.from_user.id, "Список адрессов:",
                                reply_markup=await get_wallet_address_list_inl_kb_root(addresses=addresses))
         await bot.send_message(message.from_user.id, "Для вывода средств с адреса ДОЛЖНЫ его заморозить если он занят"
                                                      "заморозьте его и подождите пока он станет свободный "
@@ -460,21 +468,25 @@ async def edit_menu_of_address(callback: types.CallbackQuery):
     await callback.answer()
 
 
-async def delete_wallet_address(callback: types.CallbackQuery, message: types.Message):
+async def delete_wallet_address(callback: types.CallbackQuery):
     address_id = int(callback.data.split(':')[1])
     await sql_db.delete_wallet_address(address_id=address_id)
-    await callback.answer()
-    await show_list_of_wallet_address(message=message)
+    await callback.answer("Адрес удален!")
 
 
-async def block_or_unblock_wallet_address(callback: types.CallbackQuery, message: types.Message):
+async def block_or_unblock_wallet_address(callback: types.CallbackQuery):
     """
     If wallet address is blocked then the address don`t use for payments, this is use for withdrawal of money.
     """
     address_id = int(callback.data.split(':')[1])
-    await sql_db.change_wallet_address_frozen_status(address_id=address_id)
-    await callback.answer()
-    await show_list_of_wallet_address(message=message)
+    address_data: tuple = await sql_db.get_wallet_address_data(address_id=address_id)
+    if address_data is not None:
+        wallet_address = address_data[1]
+        address_balance: int = await update_wallet_balance(address=wallet_address)
+        await sql_db.change_wallet_address_frozen_status(address_id=address_id, balance=address_balance)
+        await callback.answer("Адрес заморожен!")
+    else:
+        await callback.answer("Ошибка адрес не найден!")
 
 
 def register_admin_action(dp: Dispatcher):
@@ -547,8 +559,7 @@ def register_action_for_wallet_address(dp: Dispatcher):
     dp.register_message_handler(add_wallet_address, AdminFilter(), commands=["add_address"], state=None)
     dp.register_message_handler(set_address_for_new_wallet_address, state=WalletAddressGroup.address)
     dp.register_message_handler(processing_invalid_address_network,
-                                lambda message: message.text not in available_network,
-                                state=WalletAddressGroup.network)
+                                lambda message: message.text not in available_network, state=WalletAddressGroup.network)
     dp.register_message_handler(set_network_for_new_wallet_address, state=WalletAddressGroup.network)
     dp.register_message_handler(show_list_of_wallet_address, AdminFilter(), commands=["show_addresses"])
     dp.register_callback_query_handler(edit_menu_of_address, AdminFilter(), Text(startswith="address_id:",
