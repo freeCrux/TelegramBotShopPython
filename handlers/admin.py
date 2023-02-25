@@ -18,9 +18,34 @@ from keyboards.client_inline_buttons import get_sales_list_inl_kb
 
 from database import sql_db
 
+# from Utils.CustomFilter import AdminFilter
+
+
+from aiogram import types
+from aiogram.dispatcher.filters import BoundFilter
+from config import admins_id_list
+
 NAME_LIMIT_SIZE = 64
 PRICE_LIMIT_SIZE = 6
 DESCRIPTION_LIMIT_SIZE = 960 - NAME_LIMIT_SIZE - PRICE_LIMIT_SIZE
+
+
+# -------------------------------- #
+# Custom admin filter for handlers #
+# -------------------------------- #
+
+
+class AdminFilter(BoundFilter):
+    key = 'is_admin'
+
+    def __init__(self):
+        pass
+
+    async def check(self, message: types.Message) -> bool:
+        user_id = message.from_user.id
+        if user_id in admins_id_list:
+            return True
+        return False
 
 
 # ----------------------------------- #
@@ -71,14 +96,8 @@ async def cmd_menu(message: types.Message):
 
 
 # ------------------------------------------- #
-# Verify, logout and register a user as admin #
+# Logout and register a user as admin #
 # ------------------------------------------- #
-
-
-def verify(user_id: int) -> bool:
-    if user_id in admins_id_list:
-        return True
-    return False
 
 
 async def register(message: types.Message):
@@ -460,29 +479,26 @@ async def block_or_unblock_wallet_address(callback: types.CallbackQuery, message
 
 def register_admin_action(dp: Dispatcher):
     # <Show admin menu>
-    dp.register_message_handler(cmd_menu, lambda message: verify(message.from_user.id), commands=["admin"])
+    dp.register_message_handler(cmd_menu, AdminFilter(), commands=["admin"])
     # <Register user as admin>
-    dp.register_message_handler(register, lambda message: not verify(message.from_user.id),
-                                commands=["admin"], state=None)
+    dp.register_message_handler(register, commands=["admin"], state=None)
     dp.register_message_handler(get_login, state=AuthorizationStatesGroup.login)
     dp.register_message_handler(get_password, state=AuthorizationStatesGroup.password)
     # <Logout admin and show user menu>
-    dp.register_message_handler(logout, lambda message: verify(message.from_user.id), commands=["logout"])
+    dp.register_message_handler(logout, AdminFilter(), commands=["logout"])
 
 
 def register_action_for_product(dp: Dispatcher):
-    dp.register_message_handler(show_all_products, lambda message: verify(message.from_user.id),
-                                commands=["show_product"], state=None)
+    dp.register_message_handler(show_all_products, AdminFilter(), commands=["show_product"], state=None)
 
-    dp.register_callback_query_handler(redactor_of_product, lambda message: verify(message.from_user.id),
+    dp.register_callback_query_handler(redactor_of_product, AdminFilter(),
                                        Text(startswith="prod_id_for_redactor:", ignore_case=True), state=None)
-    dp.register_callback_query_handler(edit_product, lambda message: verify(message.from_user.id),
-                                       Text(startswith="id_product_to_change:", ignore_case=True))
-    dp.register_callback_query_handler(delete_product, lambda message: verify(message.from_user.id),
-                                       Text(startswith="id_product_to_delete:", ignore_case=True))
+    dp.register_callback_query_handler(edit_product, AdminFilter(), Text(startswith="id_product_to_change:",
+                                                                         ignore_case=True))
+    dp.register_callback_query_handler(delete_product, AdminFilter(), Text(startswith="id_product_to_delete:",
+                                                                           ignore_case=True))
     # <Add photo>
-    dp.register_message_handler(add_product, lambda message: verify(message.from_user.id),
-                                commands=["add_product"], state=None)
+    dp.register_message_handler(add_product, AdminFilter(), commands=["add_product"], state=None)
     dp.register_message_handler(set_photo_new_prod, content_types=["photo"], state=ProductStatesGroup.photo)
     # <Set name>
     dp.register_message_handler(processing_too_long_message,
@@ -495,23 +511,19 @@ def register_action_for_product(dp: Dispatcher):
     dp.register_message_handler(set_price_new_prod, lambda message: message.text.isdigit(),
                                 state=ProductStatesGroup.price)
     # <Set description>
-    dp.register_message_handler(processing_too_long_message,
-                                lambda message: len(message.text) > DESCRIPTION_LIMIT_SIZE,
+    dp.register_message_handler(processing_too_long_message, lambda message: len(message.text) > DESCRIPTION_LIMIT_SIZE,
                                 state=ProductStatesGroup.description)
     dp.register_message_handler(set_description_new_prod, state=ProductStatesGroup.description)
 
 
 def register_action_for_delivery(dp: Dispatcher):
-    dp.register_message_handler(show_list_of_delivers, lambda message: verify(message.from_user.id),
-                                commands=["show_delivery"])
-    dp.register_callback_query_handler(show_delivery, lambda message: verify(message.from_user.id),
+    dp.register_message_handler(show_list_of_delivers, AdminFilter(), commands=["show_delivery"])
+    dp.register_callback_query_handler(show_delivery, AdminFilter(),
                                        Text(startswith="delivery_id_root:", ignore_case=True))
-    dp.register_callback_query_handler(delete_delivery, lambda message: verify(message.from_user.id),
+    dp.register_callback_query_handler(delete_delivery, AdminFilter(),
                                        Text(startswith="id_delivery_to_delete:", ignore_case=True))
-
-    dp.register_message_handler(add_delivery, lambda message: verify(message.from_user.id),
-                                commands=["add_delivery"], state=None)
-    dp.register_callback_query_handler(select_product_id_new_delivery, lambda message: verify(message.from_user.id),
+    dp.register_message_handler(add_delivery, AdminFilter(), commands=["add_delivery"], state=None)
+    dp.register_callback_query_handler(select_product_id_new_delivery, AdminFilter(),
                                        Text(startswith="prod_id_for_delivery:", ignore_case=True),
                                        state=DeliveryStatesGroup.prod_id)
     dp.register_message_handler(set_photo_new_delivery, content_types=["photo"], state=DeliveryStatesGroup.photo)
@@ -525,29 +537,25 @@ def register_action_for_delivery(dp: Dispatcher):
 
 
 def register_action_for_client(dp: Dispatcher):
-    dp.register_message_handler(request_client_info, lambda message: verify(message.from_user.id),
-                                commands=["client_info"], state=None)
+    dp.register_message_handler(request_client_info, AdminFilter(), commands=["client_info"], state=None)
     dp.register_message_handler(show_client_info, state=ClientStatesGroup.client_id)
-    dp.register_callback_query_handler(show_sale_full_info, lambda message: verify(message.from_user.id),
-                                       Text(startswith="sale_id:", ignore_case=True))
+    dp.register_callback_query_handler(show_sale_full_info, AdminFilter(), Text(startswith="sale_id:",
+                                                                                ignore_case=True))
 
 
 def register_action_for_wallet_address(dp: Dispatcher):
-    dp.register_message_handler(add_wallet_address, lambda message: verify(message.from_user.id),
-                                commands=["add_address"], state=None)
+    dp.register_message_handler(add_wallet_address, AdminFilter(), commands=["add_address"], state=None)
     dp.register_message_handler(set_address_for_new_wallet_address, state=WalletAddressGroup.address)
     dp.register_message_handler(processing_invalid_address_network,
                                 lambda message: message.text not in available_network,
                                 state=WalletAddressGroup.network)
     dp.register_message_handler(set_network_for_new_wallet_address, state=WalletAddressGroup.network)
-
-    dp.register_message_handler(show_list_of_wallet_address, lambda message: verify(message.from_user.id),
-                                commands=["show_addresses"])
-    dp.register_callback_query_handler(edit_menu_of_address, lambda message: verify(message.from_user.id),
-                                       Text(startswith="address_id:", ignore_case=True))
-    dp.register_callback_query_handler(delete_wallet_address, lambda message: verify(message.from_user.id),
-                                       Text(startswith="id_address_to_delete:", ignore_case=True))
-    dp.register_callback_query_handler(block_or_unblock_wallet_address, lambda message: verify(message.from_user.id),
+    dp.register_message_handler(show_list_of_wallet_address, AdminFilter(), commands=["show_addresses"])
+    dp.register_callback_query_handler(edit_menu_of_address, AdminFilter(), Text(startswith="address_id:",
+                                                                                 ignore_case=True))
+    dp.register_callback_query_handler(delete_wallet_address, AdminFilter(), Text(startswith="id_address_to_delete:",
+                                                                                  ignore_case=True))
+    dp.register_callback_query_handler(block_or_unblock_wallet_address, AdminFilter(),
                                        Text(startswith="id_address_to_freeze:", ignore_case=True))
 
 
@@ -559,13 +567,3 @@ def register_admin_handlers(dp: Dispatcher):
     register_action_for_delivery(dp=dp)
     register_action_for_client(dp=dp)
     register_action_for_wallet_address(dp=dp)
-
-
-# TODO For test
-# def ver(message: types.Message):
-#     def ver_wrapper(func):
-#         def wrapper(*args, **kwargs):
-#             if message.from_user.id in admins_id_list:
-#                 return func()
-#         return wrapper
-#     return ver_wrapper
