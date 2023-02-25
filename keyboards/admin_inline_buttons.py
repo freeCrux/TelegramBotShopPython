@@ -6,16 +6,16 @@ cancel_input_inline_kd = InlineKeyboardMarkup(row_width=1)
 cancel_input_inline_kd.add(cancel_button)
 
 
-async def get_product_editor_menu_inline_kd_root(prod_id: int) -> InlineKeyboardMarkup:
+def get_product_editor_menu_inline_kd_root(prod_id: int) -> InlineKeyboardMarkup:
     change_button = InlineKeyboardButton(text="Изменить товар", callback_data=f"id_product_to_change:{prod_id}")
     delete_button = InlineKeyboardButton(text="Удалить товар", callback_data=f"id_product_to_delete:{prod_id}")
-    product_editor_ = InlineKeyboardMarkup(row_width=2)
-    product_editor_.row(change_button, delete_button)
+    product_editor = InlineKeyboardMarkup(row_width=2)
+    product_editor.row(change_button, delete_button)
 
-    return product_editor_
+    return product_editor
 
 
-async def get_products_list_inl_kb_root(products: list, mode: str) -> InlineKeyboardMarkup:
+def get_products_list_inl_kb_root(products: list, mode: str) -> InlineKeyboardMarkup:
     """
     :param mode: prod_id_for_redactor for callback which show all products,
                  prod_id_for_delivery for callback which add new delivery
@@ -30,7 +30,7 @@ async def get_products_list_inl_kb_root(products: list, mode: str) -> InlineKeyb
     return inl_kb
 
 
-async def get_delivers_list_inl_kb_root(delivers: list) -> InlineKeyboardMarkup:
+def get_delivers_list_inl_kb_root(delivers: list) -> InlineKeyboardMarkup:
     inl_kb = InlineKeyboardMarkup(row_width=1)
     for d in delivers:
         # <d[0] - ID of the product that is attached to the delivery>,
@@ -41,7 +41,7 @@ async def get_delivers_list_inl_kb_root(delivers: list) -> InlineKeyboardMarkup:
     return inl_kb
 
 
-async def get_delivery_editor_menu_inline_kd_root(del_id: int) -> InlineKeyboardMarkup:
+def get_delivery_editor_menu_inline_kd_root(del_id: int) -> InlineKeyboardMarkup:
     delete_button = InlineKeyboardButton(text="Удалить доставку", callback_data=f"id_delivery_to_delete:{del_id}")
     menu_inline_kd = InlineKeyboardMarkup(row_width=2)
     menu_inline_kd.add(delete_button)
@@ -49,7 +49,7 @@ async def get_delivery_editor_menu_inline_kd_root(del_id: int) -> InlineKeyboard
     return menu_inline_kd
 
 
-async def get_sales_list_inl_kb_root(sales: list) -> InlineKeyboardMarkup:
+def get_sales_list_inl_kb_root(sales: list) -> InlineKeyboardMarkup:
     inl_kb = InlineKeyboardMarkup(row_width=1)
     for sl in sales:
         # <sl[3] - date of sale>, <sl[0] - ID of sale>, <sl[2] - delivery id that refer to sale>
@@ -58,7 +58,7 @@ async def get_sales_list_inl_kb_root(sales: list) -> InlineKeyboardMarkup:
     return inl_kb
 
 
-async def get_wallet_address_list_inl_kb_root(addresses: list) -> InlineKeyboardMarkup:
+def get_wallet_address_list_inl_kb_root(addresses: list) -> InlineKeyboardMarkup:
     inl_kb = InlineKeyboardMarkup(row_width=1)
     for address in addresses:
         # <address[0] - ID of address>, <address[2] - balance>, <address[3] - usedUntil>, <address[4] - network>
@@ -71,7 +71,7 @@ async def get_wallet_address_list_inl_kb_root(addresses: list) -> InlineKeyboard
     return inl_kb
 
 
-async def get_wallet_address_editor_menu_inline_kd_root(address_id: int) -> InlineKeyboardMarkup:
+def get_wallet_address_editor_menu_inline_kd_root(address_id: int) -> InlineKeyboardMarkup:
     """
     :return: Menu of inline buttons, such us delete_button with callback_data - id_address_to_delete:{address_id}
              and freeze_button with callback_data - id_address_to_freeze:{address_id}

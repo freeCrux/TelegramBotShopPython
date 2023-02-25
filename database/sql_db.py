@@ -63,13 +63,13 @@ def sql_connect():
 # --------------------- #
 
 
-async def add_product(prod_data: FSMContextProxy):
+def add_product(prod_data: FSMContextProxy):
     cursor.execute('INSERT INTO product (photo, name, price, description) VALUES (?, ?, ?, ?)',
                    (prod_data["photo"], prod_data["name"], prod_data["price"], prod_data["description"],))
     database.commit()
 
 
-async def get_available_product_list() -> list:
+def get_available_product_list() -> list:
     """
     :return: products list that have more one delivery
     """
@@ -82,17 +82,17 @@ async def get_available_product_list() -> list:
     return available_prod
 
 
-async def counter_deliveries_by_product(prod_id: int) -> int:
+def counter_deliveries_by_product(prod_id: int) -> int:
     available_delivery = cursor.execute('SELECT * FROM delivery WHERE productId = ? AND available = TRUE',
                                         (prod_id,)).fetchall()
     return len(available_delivery)
 
 
-async def get_all_product_list() -> list:
+def get_all_product_list() -> list:
     return cursor.execute('SELECT * FROM product').fetchall()
 
 
-async def get_product_info(prod_id: int) -> tuple:
+def get_product_info(prod_id: int) -> tuple:
     data = cursor.execute('SELECT * FROM product WHERE id = ?', (prod_id,)).fetchone()
     if data is not None:
         return data
@@ -100,7 +100,7 @@ async def get_product_info(prod_id: int) -> tuple:
         raise Exception("Product is not exist")
 
 
-async def get_product_name(prod_id: int) -> str:
+def get_product_name(prod_id: int) -> str:
     """
     :return: product name if it`s exist else -> product not found
     """
@@ -111,19 +111,19 @@ async def get_product_name(prod_id: int) -> str:
     return "Товар не найден"
 
 
-async def change_product(prod_data: FSMContextProxy):
+def change_product(prod_data: FSMContextProxy):
     cursor.execute('UPDATE product SET (photo, name, price, description) = (?, ?, ?, ?) WHERE id = ?',
                    (prod_data["photo"], prod_data["name"], prod_data["price"],
                     prod_data["description"], prod_data["product_id"],))
     database.commit()
 
 
-async def delete_product(prod_id: int):
+def delete_product(prod_id: int):
     cursor.execute('DELETE FROM product WHERE id = ?', (prod_id,))
     database.commit()
 
 
-async def get_product_price(prod_id: int) -> int:
+def get_product_price(prod_id: int) -> int:
     price: int = cursor.execute('SELECT price FROM product WHERE id = ?', (prod_id,)).fetchone()[0]
 
     return price
@@ -143,7 +143,7 @@ def add_client_if_not_exist(func):
     return wrapper
 
 
-async def add_client(client_id: int):
+def add_client(client_id: int):
     client = cursor.execute(f'SELECT id FROM client WHERE id = ?', (client_id,)).fetchone()
     if client is None:
         cursor.execute('INSERT INTO client (id) VALUES (?)', (client_id,))
@@ -151,14 +151,14 @@ async def add_client(client_id: int):
 
 
 @add_client_if_not_exist
-async def get_client_balance(client_id: int) -> int:
+def get_client_balance(client_id: int) -> int:
     balance: int = cursor.execute(f'SELECT balance FROM client WHERE id = ?', (client_id,)).fetchone()[0]
 
     return balance
 
 
 @add_client_if_not_exist
-async def change_client_balance(client_id: int, cash: int):
+def change_client_balance(client_id: int, cash: int):
     """
     :param cash: Can be positive if client deposit cash and negative if he buys something
     """
@@ -175,7 +175,7 @@ async def change_client_balance(client_id: int, cash: int):
 
 
 @add_client_if_not_exist
-async def get_herself_data_for_client(client_id: int) -> tuple:
+def get_herself_data_for_client(client_id: int) -> tuple:
     """
     Used in client handlers for getting data about client
     """
@@ -184,7 +184,7 @@ async def get_herself_data_for_client(client_id: int) -> tuple:
     return data
 
 
-async def get_client_data_for_admin(client_id: int) -> tuple or None:
+def get_client_data_for_admin(client_id: int) -> tuple or None:
     """
     Used in admins handlers for getting data about every user. Return None if client id isn`t exist.
     """
@@ -198,20 +198,20 @@ async def get_client_data_for_admin(client_id: int) -> tuple or None:
 # --------------------- #
 
 
-async def add_delivery(state: FSMContext):
-    async with state.proxy() as data:
+def add_delivery(state: FSMContext):
+    with state.proxy() as data:
         cursor.execute(
             'INSERT INTO delivery (productId, photo, adress, description, dateOfAdding) VALUES (?, ?, ?, ?, ?)',
             (*[val for val in data.values()], str(datetime.now().strftime("%m/%d/%Y, %H:%M:%S"), )))
         database.commit()
 
 
-async def delete_delivery(del_id: int):
+def delete_delivery(del_id: int):
     cursor.execute('DELETE FROM delivery WHERE id = ?', (del_id,))
     database.commit()
 
 
-async def get_delivery_info_from_id(del_id: int) -> tuple:
+def get_delivery_info_from_id(del_id: int) -> tuple:
     data: tuple = cursor.execute('SELECT * FROM delivery WHERE id = ?', (del_id,)).fetchone()
     if data is None:
         raise ValueIsNoneException("Delivery not found")
@@ -219,11 +219,11 @@ async def get_delivery_info_from_id(del_id: int) -> tuple:
     return data
 
 
-async def get_available_delivers_list() -> list:
+def get_available_delivers_list() -> list:
     return cursor.execute('SELECT * FROM delivery WHERE available = TRUE').fetchall()
 
 
-async def get_id_available_deliver(prod_id: int) -> int:
+def get_id_available_deliver(prod_id: int) -> int:
     del_id: int = cursor.execute(f'SELECT id FROM delivery WHERE productId = (?) AND available = TRUE',
                                  (prod_id,)).fetchone()[0]
     if del_id is None:
@@ -232,11 +232,11 @@ async def get_id_available_deliver(prod_id: int) -> int:
     return del_id
 
 
-async def get_delivers_from_product_id(prod_id: int) -> tuple:
+def get_delivers_from_product_id(prod_id: int) -> tuple:
     return cursor.execute('SELECT * FROM delivery WHERE productId = ?', (prod_id,)).fetchall()[0]
 
 
-async def change_available_status_delivery(del_id: int):
+def change_available_status_delivery(del_id: int):
     cursor.execute('UPDATE delivery SET available = FALSE WHERE id = ?', (del_id,))
     database.commit()
 
@@ -246,13 +246,13 @@ async def change_available_status_delivery(del_id: int):
 # ------------------ #
 
 
-async def register_new_sale(buyer_id: int, del_id: int, paid: int):
+def register_new_sale(buyer_id: int, del_id: int, paid: int):
     cursor.execute('INSERT INTO sale (buyerId, deliveryId, dateSales, paid) VALUES (?, ?, ?, ?)',
                    (buyer_id, del_id, str(datetime.now().strftime("%m/%d/%Y, %H:%M:%S")), paid,))
     database.commit()
 
 
-async def get_sales_from_client_id(client_id: int) -> list:
+def get_sales_from_client_id(client_id: int) -> list:
     """
     :return: Last 10 sales of client
     """
@@ -261,7 +261,7 @@ async def get_sales_from_client_id(client_id: int) -> list:
     return sales
 
 
-async def get_sale_from_id(sale_id: int) -> tuple:
+def get_sale_from_id(sale_id: int) -> tuple:
     data: tuple = cursor.execute('SELECT * FROM sale WHERE id = ?', (sale_id,)).fetchone()
     if data is None:
         raise ValueIsNoneException("Sale not found.")
@@ -272,7 +272,7 @@ async def get_sale_from_id(sale_id: int) -> tuple:
 # Operation on wallet #
 # ------------------- #
 
-async def add_new_wallet_address(address: str, network: str, balance: int):
+def add_new_wallet_address(address: str, network: str, balance: int):
     wallet_address = cursor.execute(f'SELECT address FROM wallet WHERE address = ?', (address,)).fetchone()
     if wallet_address is None:
         cursor.execute('INSERT INTO wallet (address, balance, network) VALUES (?, ?, ?)',
@@ -280,20 +280,20 @@ async def add_new_wallet_address(address: str, network: str, balance: int):
         database.commit()
 
 
-async def get_wallet_all_addresses_list() -> list:
+def get_wallet_all_addresses_list() -> list:
     return cursor.execute('SELECT * FROM wallet').fetchall()
 
 
-async def get_wallet_address_data(address_id: int) -> tuple:
+def get_wallet_address_data(address_id: int) -> tuple:
     return cursor.execute('SELECT * FROM wallet WHERE id = ?', (address_id,)).fetchone()
 
 
-async def delete_wallet_address(address_id: int):
+def delete_wallet_address(address_id: int):
     cursor.execute('DELETE FROM wallet WHERE id = ?', (address_id,))
     database.commit()
 
 
-async def change_wallet_address_frozen_status(address_id: int, balance: int):
+def change_wallet_address_frozen_status(address_id: int, balance: int):
     """
     Inverts frozen status of wallet address, True -> False and False -> True.
     """

@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import fake_useragent
 
 
-async def update_currency_rate_satoshi() -> float:
+def update_currency_rate_satoshi() -> float:
     """
     :return: float value - Currency rate for satoshi if url not available then return -1.0
     """
@@ -20,7 +20,7 @@ async def update_currency_rate_satoshi() -> float:
     return float(-1)
 
 
-async def update_wallet_balance(address: str) -> int:
+def update_wallet_balance(address: str) -> int:
     """
     :param address: address from BTC wallet
     :return: Amount of satoshi from address if address not exist or connection problem return -1

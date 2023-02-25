@@ -1,7 +1,7 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
-async def get_buy_inl_kb(prod_id: int) -> InlineKeyboardMarkup:
+def get_buy_inl_kb(prod_id: int) -> InlineKeyboardMarkup:
     buy_button = InlineKeyboardButton(text="Купить", callback_data=f"buy_prod_id:{prod_id}")
     inl_kb = InlineKeyboardMarkup(row_width=1)
     inl_kb.add(buy_button)
@@ -9,7 +9,7 @@ async def get_buy_inl_kb(prod_id: int) -> InlineKeyboardMarkup:
     return inl_kb
 
 
-async def get_products_list_inl_kb(products: list) -> InlineKeyboardMarkup:
+def get_products_list_inl_kb(products: list) -> InlineKeyboardMarkup:
     inl_kb = InlineKeyboardMarkup(row_width=1)
     for pr in products:
         # <pr[1] - name of product>, <pr[2] - price of product>, <pr[4] - id of product>
@@ -18,7 +18,7 @@ async def get_products_list_inl_kb(products: list) -> InlineKeyboardMarkup:
     return inl_kb
 
 
-async def get_sales_list_inl_kb(sales: list) -> InlineKeyboardMarkup:
+def get_sales_list_inl_kb(sales: list) -> InlineKeyboardMarkup:
     inl_kb = InlineKeyboardMarkup(row_width=1)
     for sl in sales:
         # <sl[3] - date of sale>, <sl[0] - ID of sale>, <sl[2] - delivery id that refer to sale>
