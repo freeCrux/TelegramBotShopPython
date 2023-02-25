@@ -340,7 +340,7 @@ async def request_client_info(message: types.Message):
 
 async def show_client_info(message: types.Message, state: FSMContext):
     client_id = int(message.text)
-    client_data: tuple = await sql_db.get_client_data(client_id=client_id)
+    client_data: tuple = await sql_db.get_client_data_for_admin(client_id=client_id)
     if client_data is not None:
         sales = await sql_db.get_sales_from_client_id(client_id=client_id)
         await bot.send_message(message.from_user.id, f"ID: {client_data[0]} | "
@@ -490,7 +490,7 @@ def register_action_for_product(dp: Dispatcher):
     dp.register_message_handler(set_name_new_prod, state=ProductStatesGroup.name)
     # <Set price>
     dp.register_message_handler(processing_invalid_price,
-                                lambda message: not message.text.isdigit() and int(message.text) <= 9999,
+                                lambda message: not message.text.isdigit() or int(message.text) > 9999,
                                 state=ProductStatesGroup.price)
     dp.register_message_handler(set_price_new_prod, lambda message: message.text.isdigit(),
                                 state=ProductStatesGroup.price)

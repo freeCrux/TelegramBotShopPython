@@ -77,7 +77,7 @@ async def buy_product(callback: types.CallbackQuery):
 
 
 async def show_client_info(message: types.Message):
-    data: tuple = await sql_db.get_client_data(client_id=message.from_user.id)
+    data: tuple = await sql_db.get_herself_data_for_client(client_id=message.from_user.id)
     await bot.send_message(message.from_user.id, f"Твой ID: {data[0]}\nБаланс счета: {data[1]}$",
                            reply_markup=client_menu_kb)
 

@@ -164,7 +164,7 @@ async def change_client_balance(client_id: int, cash: int):
     data: tuple = cursor.execute(f'SELECT balance, paid, salesCount  FROM client WHERE id = ?', (client_id,)).fetchone()
     balance: int = data[0]
     paid: int = data[1] + abs(cash) if cash < 0 else data[1]
-    sales_count: int = data[5] + 1 if cash < 0 else data[5]
+    sales_count: int = data[2] + 1 if cash < 0 else data[2]
     if cash > 0 or balance + cash >= 0:
         cursor.execute('UPDATE client SET (balance, paid, salesCount) = (?, ?, ?) WHERE id = ?',
                        (balance + cash, paid, sales_count, client_id,))
@@ -174,7 +174,19 @@ async def change_client_balance(client_id: int, cash: int):
 
 
 @add_client_if_not_exist
-async def get_client_data(client_id: int) -> tuple:
+async def get_herself_data_for_client(client_id: int) -> tuple:
+    """
+    Used in client handlers for getting data about client
+    """
+    data: tuple = cursor.execute(f'SELECT * FROM client WHERE id = ?', (client_id,)).fetchone()
+
+    return data
+
+
+async def get_client_data_for_admin(client_id: int) -> tuple or None:
+    """
+    Used in admins handlers for getting data about every user. Return None if client id isn`t exist.
+    """
     data: tuple = cursor.execute(f'SELECT * FROM client WHERE id = ?', (client_id,)).fetchone()
 
     return data
