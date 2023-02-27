@@ -14,3 +14,6 @@ admin_password = os.environ["admin_password_env"]
 admins_id_list = list()
 
 available_network = ["BTC"]
+
+# Time for waiting payments it`s hours
+WAIT_LIMIT = 1

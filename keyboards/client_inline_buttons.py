@@ -1,4 +1,5 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from config import available_network
 
 
 def get_buy_inl_kb(prod_id: int) -> InlineKeyboardMarkup:
@@ -23,5 +24,13 @@ def get_sales_list_inl_kb(sales: list) -> InlineKeyboardMarkup:
     for sl in sales:
         # <sl[3] - date of sale>, <sl[0] - ID of sale>, <sl[2] - delivery id that refer to sale>
         inl_kb.add(InlineKeyboardButton(text=f"Date: {sl[3]} | ID: {sl[0]}", callback_data=f"delivery_id:{sl[2]}"))
+
+    return inl_kb
+
+
+def get_address_network_inl_kb() -> InlineKeyboardMarkup:
+    inl_kb = InlineKeyboardMarkup(row_width=1)
+    for network in available_network:
+        inl_kb.add(InlineKeyboardButton(text=f"Сеть: {network}", callback_data=f"network:{network}"))
 
     return inl_kb

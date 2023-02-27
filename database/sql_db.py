@@ -6,9 +6,12 @@ from aiogram.dispatcher.storage import FSMContextProxy
 from bot_init import bot
 
 from datetime import datetime
+import datetime
 
 from Utils import ValueIsNoneException
 from Utils.wallet import update_currency_rate_satoshi, update_wallet_balance
+
+from config import WAIT_LIMIT
 
 
 def sql_connect():
@@ -17,7 +20,7 @@ def sql_connect():
     cursor = database.cursor()
 
     cursor.execute('CREATE TABLE IF NOT EXISTS client( '
-                   'id INTEGER PRIMARY KEY,'
+                   'id BIGINT PRIMARY KEY,'
                    'balance INTEGER DEFAULT 0,'
                    'dateOfLastDeposit TEXT DEFAULT "never",'
                    'paymentOfLastDeposit INTEGER DEFAULT 0,'
@@ -53,7 +56,8 @@ def sql_connect():
                    'balance TEXT,'
                    'usedUntil TEXT DEFAULT "free",'
                    'network TEXT,'
-                   'frozen BOOLEAN DEFAULT FALSE)')
+                   'frozen BOOLEAN DEFAULT FALSE,'
+                   'idCustomerForWait BIGINT DEFAULT -1)')
 
     database.commit()
 
@@ -136,7 +140,7 @@ def get_product_price(prod_id: int) -> int:
 
 def add_client_if_not_exist(func):
     async def wrapper(client_id, *args, **kwargs):
-        await add_client(client_id)
+        add_client(client_id)
 
         return await func(client_id, *args, **kwargs)
 
@@ -302,4 +306,53 @@ def change_wallet_address_frozen_status(address_id: int, balance: int):
         frozen_status = False if frozen_status else True
         cursor.execute('UPDATE wallet SET (frozen, balance) = (?, ?) WHERE id = ?',
                        (frozen_status, balance, address_id,))
+        database.commit()
+
+
+def get_available_wallet_address(network: str, customer_id: int) -> tuple:
+    return cursor.execute('SELECT * FROM wallet WHERE network = ? and freez = FALSE and usedUntil = "free"'
+                          ' and idCustomerForWait != ?',
+                          (network, customer_id,)).fetchone()
+
+
+def set_usage_status_wallet_address(address_id: int, customer_id: int):
+    """
+    Setting time for payments.
+    """
+    address_id = cursor.execute('SELECT id FROM wallet WHERE id = ?', (address_id,)).fetchone()
+    if address_id is not None:
+        wait_time = datetime.datetime.today() + datetime.timedelta(hours=WAIT_LIMIT)
+        cursor.execute('UPDATE wallet SET (usedUntil, idCustomerForWait) = (?, ?) WHERE id = ?',
+                       (wait_time, customer_id, address_id,))
+        database.commit()
+
+
+def get_wallet_addresses_that_over_wait() -> list:
+    """
+    :return: List of addresses id that already have over wait.
+    """
+    addresses: list = cursor.execute('SELECT id, usedUntil FROM wallet WHERE usedUntil != "free"').fetchall()
+    result_id = list()
+    if addresses is not None:
+        if addresses is not None:
+            cur_time = (datetime.datetime.today())
+            for a in addresses:
+                if cur_time > a[1]:
+                    result_id.append(a[0])
+
+    return result_id
+
+
+def update_usage_status_wallet_address(address_id: int):
+    address: tuple = cursor.execute('SELECT id FROM wallet WHERE id = ?', (address_id,)).fetchone()
+    if address is not None:
+        cursor.execute('UPDATE wallet SET (usedUntil, idCustomerForWait) = (?, ?) WHERE id = ?',
+                       ("free", -1, address_id,))
+        database.commit()
+
+
+def update_wallet_address_balance(address_id: int, balance: int):
+    address: tuple = cursor.execute('SELECT id FROM wallet WHERE id = ?', (address_id,)).fetchone()
+    if address is not None:
+        cursor.execute('UPDATE wallet SET (balance) = (?) WHERE id = ?', (balance, address_id,))
         database.commit()

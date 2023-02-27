@@ -87,8 +87,29 @@ async def show_client_info(message: types.Message):
                            reply_markup=client_menu_kb)
 
 
-async def deposit_money(message: types.Message):
-    await bot.send_message(message.from_user.id, "deposit", reply_markup=client_menu_kb)
+async def prepare_deposit_cripto(message: types.Message):
+    await bot.send_message(message.from_user.id, "Для пополнения счета нужно выбрать сеть, затем если есть свободный "
+                                                 "адрес в этой сети вы сможите отправить на него свои монеты (счет "
+                                                 "будет пополнен на столько - сколько вы отправите монет), если есть "
+                                                 "вопросы вы можете написать в поддержку.",
+                           reply_markup=client_menu_kb)
+    await bot.send_message(message.from_user.id, "Выберите сеть для транзакции:",
+                           reply_markup=get_address_network_inl_kb())
+
+
+async def get_available_address_for_deposit_cripto(callback: types.CallbackQuery):
+    network: str = callback.data.split(":")[-1]
+    address: tuple = sql_db.get_available_wallet_address(network=network, customer_id=callback.message.chat.id)
+    if address is not None:
+        sql_db.set_usage_status_wallet_address(address_id=address[0], customer_id=callback.message.chat.id)
+        await callback.message.answer(f"У вас есть 30 минту что бы отправить транзакцию в сети {address[4]}"
+                                      "Деньги зачисляться на баланс через какоето время после обработки транзакции.")
+        await callback.message.answer(f"{address[1]}", reply_markup=client_menu_kb)
+    else:
+        await callback.message.answer(f"Сейчас не доступных адресов в этой сети, попробуйте позже или "
+                                      f"выбирите другую сеть, сети с которыми мы работаем {available_network}.",
+                                      reply_markup=client_menu_kb)
+        await callback.answer()
 
 
 async def show_sales(message: types.Message):
@@ -124,8 +145,10 @@ def register_client_handlers(dp: Dispatcher):
     dp.register_message_handler(show_client_info, Text(equals="Баланс", ignore_case=True))
 
     # <Show products in stock>
-    dp.register_message_handler(deposit_money, commands=["paid"])
-    dp.register_message_handler(deposit_money, Text(equals="Пополнить баланс", ignore_case=True))
+    dp.register_message_handler(prepare_deposit_cripto, commands=["paid"])
+    dp.register_message_handler(prepare_deposit_cripto, Text(equals="Пополнить баланс", ignore_case=True))
+    dp.callback_query_handlers(get_available_address_for_deposit_cripto, Text(startswith="network:",
+                                                                              ignore_case=True))
 
     # <Show sales>
     dp.register_message_handler(show_sales, commands=["myBuy"])
