@@ -1,5 +1,5 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from config import available_network
+from config import AVAILABLE_NETWORK
 
 
 def get_buy_inl_kb(prod_id: int) -> InlineKeyboardMarkup:
@@ -30,7 +30,8 @@ def get_sales_list_inl_kb(sales: list) -> InlineKeyboardMarkup:
 
 def get_address_network_inl_kb() -> InlineKeyboardMarkup:
     inl_kb = InlineKeyboardMarkup(row_width=1)
-    for network in available_network:
-        inl_kb.add(InlineKeyboardButton(text=f"Сеть: {network}", callback_data=f"network:{network}"))
+    for network in AVAILABLE_NETWORK:
+        inl_kb.add(InlineKeyboardButton(text=f"Сеть: {network +' - в сети Ethereum' if network == 'USDT' else network}",
+                                        callback_data=f"network:{network}"))
 
     return inl_kb
